@@ -30,7 +30,8 @@ SOFTWARE.
                                  @restrict const  dfloat *  x,
                                  @restrict const  dfloat *  y,
                                  @restrict const  dfloat *  z,
-                                 @restrict        dfloat *  q0,
+                                 @restrict const  dfloat *  q0,
+                                 @restrict const  dfloat *  gradq,
                                  @restrict        dfloat *  sq){
 
   for(dlong e=0;e<Nelements;++e;@outer(0)){
@@ -38,11 +39,14 @@ SOFTWARE.
       const dlong id   = e*p_Np + n;
       const dfloat xn = x[id]; 
       const dfloat yn = y[id]; 
-#if 1
-      const dfloat qn = sqrt(xn*xn + yn*yn) -1.0; 
-    // const dfloat qn  = q0[id]; 
-      // const dfloat sgn = qn / sqrt(qn*qn + eps*eps);   
-      const dfloat sgn = tanh(M_PI*qn/(10.0*eps));     
+#if 0
+    const dfloat qn = sqrt(xn*xn + yn*yn) -1.0; 
+    const dfloat dqn = 1.0; 
+      // const dfloat qn   = q0[id]; 
+      // const dfloat dqn  = gradq[id];  // |gradq|
+      // const dfloat sgn  = qn / sqrt(qn*qn +16.f*(dqn*eps)*(dqn*eps));   
+       const dfloat sgn  = qn / sqrt(qn*qn +2.0f*(dqn*eps));   
+      // const dfloat sgn = tanh(M_PI*qn/(20.f*dqn*eps));     
      // const dfloat sgn = (qn > 0) ? 1 : ((qn < 0) ? -1 : 0); 
       sq[id] = sgn;
 #else 
@@ -60,8 +64,8 @@ else{
 sgn= scale*min( sqrt( (xn+ac)*(xn+ac)+ yn*yn)-rc, sqrt( (xn-ac)*(xn-ac)+ yn*yn)-rc );
 } 
 
-sgn = tanh(M_PI*sgn/(7.0*eps)); 
-// sgn = sgn / sqrt(sgn*sgn + 4*eps*eps);   
+// sgn = tanh(M_PI*sgn/(2.0*eps)); 
+sgn = sgn / sqrt(sgn*sgn + eps*eps);   
 
  sq[id] = sgn;
 #endif

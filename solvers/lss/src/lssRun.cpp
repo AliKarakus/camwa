@@ -48,6 +48,33 @@ void lss_t::Run(){
                     o_U, 
                     o_q);
 }else{
+  // Compute gradient for regularization
+  traceHalo->ExchangeStart(o_q, 1, ogs_dfloat);
+
+   gradientVolumeKernel(mesh.Nelements,
+                       offset, 
+                       mesh.o_vgeo,
+                       mesh.o_DWmatrices, // o_Dmatrices
+                       o_q,
+                       o_gradq); 
+
+  traceHalo->ExchangeFinish(o_q, 1, ogs_dfloat);
+
+  gradientSurfaceKernel(mesh.Nelements,
+                        offset, 
+                        mesh.o_sgeo,
+                        mesh.o_LIFTT,
+                        mesh.o_vmapM,
+                        mesh.o_vmapP,
+                        mesh.o_EToB,
+                        0,
+                        mesh.o_x,
+                        mesh.o_y,
+                        mesh.o_z,
+                        o_q,
+                        o_gradq);
+
+
   regularizedSignKernel(mesh.Nelements, 
                        startTime,
                        eps, 
@@ -55,6 +82,7 @@ void lss_t::Run(){
                        mesh.o_y,
                        mesh.o_z,
                        o_q,
+                       o_gradq, 
                        o_sgnq); 
 
  if(subcellStabilization){

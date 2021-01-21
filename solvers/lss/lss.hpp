@@ -88,6 +88,9 @@ public:
   occa::kernel redistanceVolumeKernel;
   occa::kernel redistanceSurfaceKernel;
 
+  occa::kernel gradientVolumeKernel;
+  occa::kernel gradientSurfaceKernel;
+
   occa::kernel MassMatrixKernel;
 
   occa::kernel initialConditionKernel;

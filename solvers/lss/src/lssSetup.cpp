@@ -187,6 +187,8 @@ lss_t& lss_t::Setup(mesh_t& mesh, linAlg_t& linAlg,
                                                   kernelInfo, mesh.comm);
   }
 
+
+
    sprintf(fileName, DLSS "/okl/lssRegularizedSign2D.okl");
    sprintf(kernelName, "lssRegularizedSign2D");
    lss->regularizedSignKernel = buildKernel(mesh.device, fileName, kernelName,
@@ -205,6 +207,16 @@ lss_t& lss_t::Setup(mesh_t& mesh, linAlg_t& linAlg,
   lss->redistanceSurfaceKernel =  buildKernel(mesh.device, fileName, kernelName,
                                          kernelInfo, mesh.comm);
 
+
+  sprintf(fileName, DLSS "/okl/lssGradient%s.okl", suffix);
+  sprintf(kernelName, "lssGradientVolume%s", suffix);
+
+  lss->gradientVolumeKernel =  buildKernel(mesh.device, fileName, kernelName,
+                                         kernelInfo, mesh.comm);
+
+  sprintf(kernelName, "lssGradientSurface%s", suffix);
+  lss->gradientSurfaceKernel =  buildKernel(mesh.device, fileName, kernelName,
+                                         kernelInfo, mesh.comm);
 
 
 
@@ -235,7 +247,7 @@ lss_t& lss_t::Setup(mesh_t& mesh, linAlg_t& linAlg,
 
   dfloat dt = cfl*hmin/((mesh.N+1.)*(mesh.N+1.));
   lss->timeStepper->SetTimeStep(dt);  
-  lss->eps    = 4.f*hmin;  
+  lss->eps    = 1.f*hmin;  
 
   return *lss;
 }

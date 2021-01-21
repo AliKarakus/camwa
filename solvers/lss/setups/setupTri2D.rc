@@ -25,10 +25,10 @@ data/lssCircle2D.h
 3
 
 [BOX NX]
-20
+50
 
 [BOX NY]
-20
+50
 
 [BOX DIMX]
 4
@@ -37,8 +37,8 @@ data/lssCircle2D.h
 4
 
 [BOX BOUNDARY FLAG]
-#1
--1
+1
+#-1
 
 [POLYNOMIAL DEGREE]
 4
@@ -88,8 +88,8 @@ EQUISPACED
 
 [FINAL TIME]
 #8
-3
-#1.5
+#3
+1.83
 #0.01
 
 [OUTPUT INTERVAL]
