@@ -9,7 +9,8 @@ data/lssCircle2D.h
 [MESH FILE]
 #BOX
 #../../meshes/lssVortex.msh
-../../meshes/circle.msh
+#../../meshes/circle.msh
+../../meshes/circle_hole.msh
 #../../meshes/circle_coarse.msh
 
 #../../meshes/lssCircle.msh
