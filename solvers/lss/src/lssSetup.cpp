@@ -48,38 +48,45 @@ lss_t& lss_t::Setup(mesh_t& mesh, linAlg_t& linAlg,
     mesh.CubatureNodes();
   }
 
-  dlong Nlocal = mesh.Nelements*mesh.Np;
-  dlong Nhalo  = mesh.totalHaloPairs*mesh.Np;
-
-  
+  lss->NVfields = mesh.dim; 
+  lss->Nfields  = (lss->redistance) ? 2:1; 
+  dlong Nlocal  = mesh.Nelements*mesh.Np;
+  dlong Nhalo   = mesh.totalHaloPairs*mesh.Np;
 
   //setup linear algebra module
-  lss->linAlg.InitKernels({"innerProd"}, mesh.comm);
+  lss->linAlg.InitKernels({"innerProd","axpy","amx"}, mesh.comm);
 
   /*setup trace halo exchange */
-  lss->traceHalo = mesh.HaloTraceSetup(1); //one field
+  lss->traceHalo = mesh.HaloTraceSetup(lss->Nfields);
 
   // compute samples of q at interpolation nodes
-  lss->q = (dfloat*) calloc(Nlocal+Nhalo, sizeof(dfloat));
-  lss->o_q = mesh.device.malloc((Nlocal+Nhalo)*sizeof(dfloat), lss->q); // compute samples of q at interpolation nodes
+  lss->q = (dfloat*) calloc((Nlocal+Nhalo)*lss->Nfields, sizeof(dfloat));
+  lss->o_q = mesh.device.malloc((Nlocal+Nhalo)*lss->Nfields*sizeof(dfloat), lss->q); 
+
+  // this holds the gradient of qM, qP
+  lss->gradq = (dfloat*) calloc(Nlocal*lss->Nfields*mesh.dim, sizeof(dfloat));
+  lss->o_gradq = mesh.device.malloc(Nlocal*lss->Nfields*mesh.dim*sizeof(dfloat),lss->gradq);
+  
+  // this saves the history for qP, and qM to second order recontruction
+  if(settings.compareSetting("TIME RECONSTRUCTION", "ENO2")){
+  lss->Nrecon = 4; // Second order reconstruction, 
+  }else if(settings.compareSetting("TIME RECONSTRUCTION", "ENO3")){
+  lss->Nrecon = 6; 
+  }
+  // AK: this could be there be three lets keep it simple for now
+  lss->phiH = (dfloat *) calloc(Nlocal*lss->Nfields*lss->Nrecon,sizeof(dfloat));
+  lss->o_phiH = mesh.device.malloc(Nlocal*lss->Nfields*lss->Nrecon*sizeof(dfloat),lss->phiH);
+
+  // No that the actual solution is always a scalar!!!
+  lss->phi  = (dfloat *) calloc(Nlocal, sizeof(dfloat)); 
+  lss->o_phi  = mesh.device.malloc(Nlocal*sizeof(dfloat), lss->phi);
  
 
-  lss->sgnq = (dfloat*) calloc(Nlocal, sizeof(dfloat));
-  lss->o_sgnq = mesh.device.malloc(Nlocal*sizeof(dfloat), lss->sgnq);
-
-
-  lss->gradq = (dfloat *) calloc((Nlocal + Nhalo)*mesh.dim, sizeof(dfloat)); 
-  lss->o_gradq = mesh.device.malloc((Nlocal + Nhalo)*mesh.dim*sizeof(dfloat)); 
-
-  lss->U   = (dfloat*) calloc((Nlocal+Nhalo)*mesh.dim, sizeof(dfloat));
-  lss->o_U = mesh.device.malloc((Nlocal+Nhalo)*mesh.dim*sizeof(dfloat), lss->U);
-
-  lss->offset = (Nlocal+Nhalo);  // AK: check for better solution ?????
-
-  //printf("hmin = %.4e\n", hmin);
-
+  lss->U   = (dfloat*) calloc((Nlocal+Nhalo)*lss->NVfields, sizeof(dfloat));
+  lss->o_U = mesh.device.malloc((Nlocal+Nhalo)*lss->NVfields*sizeof(dfloat), lss->U);
+  
   //storage for M*q during reporting
-  lss->o_Mq = mesh.device.malloc((Nlocal+Nhalo)*sizeof(dfloat), lss->q);
+  lss->o_Mq = mesh.device.malloc((Nlocal+Nhalo)*lss->Nfields*sizeof(dfloat), lss->q);
   
   // OCCA build stuff
   occa::properties &kernelInfo = lss->props; 
@@ -90,7 +97,9 @@ lss_t& lss_t::Setup(mesh_t& mesh, linAlg_t& linAlg,
   kernelInfo["includes"] += dataFileName;
   kernelInfo["defines/" "p_blockSize"]= (int)LSS_BLOCKSIZE; 
 
-  kernelInfo["defines/" "p_Nfields"]= 1;
+  kernelInfo["defines/" "p_Nfields"] = lss->Nfields;
+  kernelInfo["defines/" "p_NVfields"]= lss->NVfields;
+  kernelInfo["defines/" "p_Nrecon"]= lss->Nrecon;
 
   int maxNodes = mymax(mesh.Np, (mesh.Nfp*mesh.Nfaces));
   kernelInfo["defines/" "p_maxNodes"]= maxNodes;
@@ -155,17 +164,16 @@ lss_t& lss_t::Setup(mesh_t& mesh, linAlg_t& linAlg,
   lss->advectionSurfaceKernel = buildKernel(mesh.device, fileName, kernelName,
                                          kernelInfo, mesh.comm);
 
-  // mass matrix operator
-  sprintf(fileName, LIBP_DIR "/core/okl/MassMatrixOperator%s.okl", suffix);
-  sprintf(kernelName, "MassMatrixOperator%s", suffix);
-
-  lss->MassMatrixKernel = buildKernel(mesh.device, fileName, kernelName,
-                                            kernelInfo, mesh.comm);
-
+  
 
   if (mesh.dim==2) {
     sprintf(fileName, DLSS "/okl/lssInitialCondition2D.okl");
-    sprintf(kernelName, "lssInitialCondition2D");
+    if(lss->advection){
+      sprintf(kernelName, "lssAdvectionInitialCondition2D");
+    }
+    else{
+      sprintf(kernelName, "lssRedistanceInitialCondition2D");
+    }
   } else {
     sprintf(fileName, DLSS "/okl/lssInitialCondition3D.okl");
     sprintf(kernelName, "lssInitialCondition3D");
@@ -173,6 +181,12 @@ lss_t& lss_t::Setup(mesh_t& mesh, linAlg_t& linAlg,
 
   lss->initialConditionKernel = buildKernel(mesh.device, fileName, kernelName,
                                                   kernelInfo, mesh.comm);
+  if(lss->redistance){
+  sprintf(fileName, DLSS "/okl/lssInitialCondition2D.okl");
+  sprintf(kernelName, "lssRedistanceSetAuxiliaryField2D");
+  lss->setAuxiliaryFieldKernel = buildKernel(mesh.device, fileName, kernelName,
+                                                  kernelInfo, mesh.comm);
+  }
   
   // This takes place of flow solver for simple problems
   if(lss->advection){
@@ -187,6 +201,29 @@ lss_t& lss_t::Setup(mesh_t& mesh, linAlg_t& linAlg,
                                                   kernelInfo, mesh.comm);
   }
 
+   sprintf(fileName, DLSS "/okl/lssReconstructENO.okl");
+
+   if(settings.compareSetting("TIME RECONSTRUCTION", "ENO2")){ 
+    sprintf(kernelName, "lssReconstructENO2");
+    lss->reconstructENOKernel = buildKernel(mesh.device, fileName, kernelName,
+                                                kernelInfo, mesh.comm);
+    sprintf(kernelName, "lssInitialHistoryENO2");
+    lss->initialHistoryKernel = buildKernel(mesh.device, fileName, kernelName,
+                                                kernelInfo, mesh.comm);
+   }else{
+    sprintf(kernelName, "lssReconstructENO3");
+    lss->reconstructENOKernel = buildKernel(mesh.device, fileName, kernelName,
+                                                kernelInfo, mesh.comm);
+    sprintf(kernelName, "lssInitialHistoryENO3");
+    lss->initialHistoryKernel = buildKernel(mesh.device, fileName, kernelName,
+                                                kernelInfo, mesh.comm);
+  }
+// mass matrix operator
+  // sprintf(fileName, LIBP_DIR "/core/okl/MassMatrixOperator%s.okl", suffix);
+  sprintf(kernelName, "MassMatrixOperator%s", suffix);
+
+  lss->MassMatrixKernel = buildKernel(mesh.device, fileName, kernelName,
+                                            kernelInfo, mesh.comm);
 
 
    sprintf(fileName, DLSS "/okl/lssRegularizedSign2D.okl");
@@ -232,10 +269,10 @@ lss_t& lss_t::Setup(mesh_t& mesh, linAlg_t& linAlg,
   } else if (settings.compareSetting("TIME INTEGRATOR","LSERK4")){
     if(lss->subcellStabilization)
     lss->timeStepper = new TimeStepper::lserk4_subcell(mesh.Nelements, mesh.totalHaloPairs,
-                                              mesh.Np, 1, lss->subcell->Nsubcells, 1, *lss);
+                                              mesh.Np, lss->Nfields, lss->subcell->Nsubcells, lss->Nfields, *lss);
     else
     lss->timeStepper = new TimeStepper::lserk4(mesh.Nelements, mesh.totalHaloPairs,
-                                              mesh.Np, 1, *lss);
+                                              mesh.Np, lss->Nfields, *lss);
   } else if (settings.compareSetting("TIME INTEGRATOR","DOPRI5")){
     lss->timeStepper = new TimeStepper::dopri5(mesh.Nelements, mesh.totalHaloPairs,
                                               mesh.Np, 1, *lss);
@@ -243,11 +280,35 @@ lss_t& lss_t::Setup(mesh_t& mesh, linAlg_t& linAlg,
 
   // // set time step
   dfloat hmin = mesh.MinCharacteristicLength();
-  dfloat cfl = 0.25; // depends on the stability region size
+  dfloat cfl = 1.0; // depends on the stability region size
 
   dfloat dt = cfl*hmin/((mesh.N+1.)*(mesh.N+1.));
   lss->timeStepper->SetTimeStep(dt);  
   lss->eps    = 1.f*hmin;  
+
+
+  #if 1
+
+   dfloat *degree = (dfloat*) calloc(Nlocal, sizeof(dfloat));
+
+   for(int i=0; i<Nlocal; i++ ){
+    degree[i] = 1.0; 
+   }
+   lss->o_invDegree = mesh.device.malloc(Nlocal*sizeof(dfloat),degree);
+
+   mesh.ogs->GatherScatter(lss->o_invDegree, ogs_dfloat, ogs_add, ogs_sym); 
+
+   lss->o_invDegree.copyTo(degree);
+
+   for(int i=0; i<Nlocal; i++ ){
+    degree[i] = 1./degree[i]; 
+    // printf("%.4f\n", degree[i]);
+   }
+
+   lss->o_invDegree.copyFrom(degree);
+
+
+  #endif
 
   return *lss;
 }

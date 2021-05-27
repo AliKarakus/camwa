@@ -4,15 +4,19 @@
 [DATA FILE]
 #data/lssSBRotation.h
 #data/lssVortex2D.h
-data/lssCircle2D.h
+#data/lssCircle2D.h
+#data/lssIntersectingCircle2D.h
+data/lssSquare2D.h
+#data/lssElliptic2D.h
 
 [MESH FILE]
-#BOX
+BOX
 #../../meshes/lssVortex.msh
 #../../meshes/circle.msh
-../../meshes/circle_hole.msh
+#../../meshes/circle_hole.msh
 #../../meshes/circle_coarse.msh
-
+#../../meshes/circle_fine.msh
+#../../meshes/circle_medium.msh
 #../../meshes/lssCircle.msh
 #../../meshes/circle_h01.msh
 #../../meshes/lssTest.msh
@@ -26,10 +30,10 @@ data/lssCircle2D.h
 3
 
 [BOX NX]
-50
+100
 
 [BOX NY]
-50
+100
 
 [BOX DIMX]
 4
@@ -47,6 +51,7 @@ data/lssCircle2D.h
 [THREAD MODEL]
 #Serial
 CUDA
+
 
 [PLATFORM NUMBER]
 0
@@ -80,6 +85,10 @@ SUBCELL
 [INDICATOR TYPE]
 MDA
 
+[TIME RECONSTRUCTION]
+ENO2
+#ENO3
+
 [SUBCELL MINOR GRID]
 EQUISPACED
 #WARPBLEND
@@ -90,7 +99,7 @@ EQUISPACED
 [FINAL TIME]
 #8
 #3
-1.83
+2
 #0.01
 
 [OUTPUT INTERVAL]
@@ -101,4 +110,8 @@ TRUE
 
 [OUTPUT FILE NAME]
 #vortex
-circle1
+#circleSmooth
+#circleIntersecting
+square
+#squareRotaed
+#elliptic

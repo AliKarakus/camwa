@@ -65,6 +65,12 @@ public:
     LIBP_ABORT(string("rhsf not implemented in this solver"))
   }
 
+   //Auxilary function to call after full time step update
+  virtual void rhsa(occa::memory& o_q, const dfloat time, const dfloat dt) {
+    LIBP_ABORT(string("rhsf not implemented in this solver"))
+  }
+
+  
   // Partial rhs evaluation of f with solver in form dq/dt = f(q,t) + g(q,t)
   virtual void rhs_imex_f(occa::memory& o_q, occa::memory& o_rhs, const dfloat time) {
     LIBP_ABORT(string("rhs_imex_f not implemented in this solver"))

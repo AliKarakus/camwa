@@ -81,9 +81,14 @@ lssSettings_t::lssSettings_t(MPI_Comm& _comm):
              "8",
              "End time for time integration");
 
+  newSetting("TIME RECONSTRUCTION",
+             "ENO2",
+             "Time recontruction method and order");
+
   newSetting("OUTPUT INTERVAL",
              ".1",
              "Time between printing output data");
+
 
   newSetting("OUTPUT TO FILE",
              "FALSE",
@@ -112,6 +117,7 @@ void lssSettings_t::report() {
     reportSetting("INDICATOR TYPE");
     reportSetting("START TIME");
     reportSetting("FINAL TIME");
+    reportSetting("TIME RECONSTRUCTION");
     reportSetting("OUTPUT INTERVAL");
     reportSetting("OUTPUT TO FILE");
     reportSetting("OUTPUT FILE NAME");

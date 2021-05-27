@@ -43,11 +43,11 @@ void lss_t::SetupStabilizer(){
     // this->sq = (dfloat*) calloc(sNlocal, sizeof(dfloat));
     // this->o_sq = mesh.device.malloc(sNlocal*sizeof(dfloat), this->sq);
     
-    this->ssgnq = (dfloat*) calloc(sNlocal, sizeof(dfloat));
-    this->o_ssgnq = mesh.device.malloc(sNlocal*sizeof(dfloat), this->ssgnq);
+    // this->ssgnq = (dfloat*) calloc(sNlocal, sizeof(dfloat));
+    // this->o_ssgnq = mesh.device.malloc(sNlocal*sizeof(dfloat), this->ssgnq);
     
-    this->sface = (dfloat *) calloc(sNtotal*mesh.Nfaces, sizeof(dfloat)); 
-    this->o_sface = mesh.device.malloc(sNtotal*mesh.Nfaces*sizeof(dfloat), this->sface); 
+    this->sface = (dfloat *) calloc(sNtotal*mesh.Nfaces*Nfields, sizeof(dfloat)); 
+    this->o_sface = mesh.device.malloc(sNtotal*mesh.Nfaces*Nfields*sizeof(dfloat), this->sface); 
 
     char *suffix;
     if(mesh.elementType==TRIANGLES)
@@ -69,9 +69,9 @@ void lss_t::SetupStabilizer(){
     indicatorMDAKernel = buildKernel(mesh.device, fileName, kernelName, 
                                      kernelInfo, mesh.comm); 
 
-    sprintf(kernelName, "lssIndicatorMDH%s", suffix);
-    indicatorMDHKernel = buildKernel(mesh.device, fileName, kernelName, 
-                                     kernelInfo, mesh.comm); 
+    // sprintf(kernelName, "lssIndicatorMDH%s", suffix);
+    // indicatorMDHKernel = buildKernel(mesh.device, fileName, kernelName, 
+    //                                  kernelInfo, mesh.comm); 
 
     sprintf(kernelName, "lssFindNeigh%s", suffix);
     findNeighKernel = buildKernel(mesh.device, fileName, kernelName, 
@@ -89,9 +89,9 @@ void lss_t::SetupStabilizer(){
     partialRedistanceVolumeKernel = buildKernel(mesh.device, fileName, kernelName, 
                                      kernelInfo, mesh.comm); 
 
-    sprintf(kernelName, "lssReconstructInternalFace%s", suffix);
-    reconstructInternalFaceKernel = buildKernel(mesh.device, fileName, kernelName, 
-                                     kernelInfo, mesh.comm); 
+    // sprintf(kernelName, "lssReconstructInternalFace%s", suffix);
+    // reconstructInternalFaceKernel = buildKernel(mesh.device, fileName, kernelName, 
+                                     // kernelInfo, mesh.comm); 
 
     sprintf(kernelName, "lssReconstructFace%s", suffix);
     reconstructFaceKernel = buildKernel(mesh.device, fileName, kernelName, 
@@ -101,9 +101,9 @@ void lss_t::SetupStabilizer(){
     projectDGKernel = buildKernel(mesh.device, fileName, kernelName, 
                                      kernelInfo, mesh.comm); 
 
-    sprintf(kernelName, "lssReconstructExternalFace%s", suffix);
-    reconstructExternalFaceKernel = buildKernel(mesh.device, fileName, kernelName, 
-                                     kernelInfo, mesh.comm);
+    // sprintf(kernelName, "lssReconstructExternalFace%s", suffix);
+    // reconstructExternalFaceKernel = buildKernel(mesh.device, fileName, kernelName, 
+                                     // kernelInfo, mesh.comm);
 
     sprintf(kernelName, "lssPartialRedistanceSurface%s", suffix);
     partialRedistanceSurfaceKernel = buildKernel(mesh.device, fileName, kernelName, 

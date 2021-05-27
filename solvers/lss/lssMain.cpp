@@ -66,12 +66,6 @@ int main(int argc, char **argv){
   // run
   lss.Run();
 
-  // // sclean up
-  // delete &lss;
-  // delete &linAlg;
-  // delete &mesh;
-  // device.free();
-
   // close down MPI
   MPI_Finalize();
   return LIBP_SUCCESS;

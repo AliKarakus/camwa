@@ -45,7 +45,7 @@ public:
   occa::properties& props;
   solver_t& solver; // connect to the solver
 
-int N, Nsubcells, Nint, Next; 
+int N, Nsubcells, Nint, Next, Nfields; 
 // int Nedges;
 int Nvgeo, Nsgeo; 
 int Nverts, Nfaces, Np; 

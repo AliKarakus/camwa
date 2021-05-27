@@ -29,7 +29,7 @@ SOFTWARE.
 // #include "mesh3D.hpp"
 
 subcellTri2D::subcellTri2D(solver_t& _solver):
-   subcell_t(_solver) {
+   subcell_t(_solver){
    settings.getSetting("SUBCELL NUMBER", N);
     // Nverts = mesh.Nverts; // Subcell could be in different topology but not now
     // Nfaces = mesh.Nfaces; 
@@ -41,7 +41,7 @@ subcellTri2D::subcellTri2D(solver_t& _solver):
    }
 
 void subcellTri2D::SetupDetector(){
-
+  Nfields = 2; //!!!!!!!!!!! 
   // Set mode map info for skyline 
   Nmodes   = mesh.Np; 
   Nmodes1D = mesh.N+1; 
@@ -129,7 +129,7 @@ for(int n=0; n<mesh.Np; n++){
 
 
   // Initialize Element List on host
-  ElementList = (dlong *) calloc((mesh.Nelements+mesh.totalHaloPairs), sizeof(dlong)); 
+  ElementList = (dlong *) calloc((mesh.Nelements+mesh.totalHaloPairs)*Nfields, sizeof(dlong)); 
 
 
   free(invV); 
@@ -144,7 +144,7 @@ void subcellTri2D::OccaSetup(){
  // occa::properties kernelInfo = props; //copy base properties
  occa::properties &kernelInfo = props; 
  // Detector Related
- o_ElementList = device.malloc((mesh.Nelements+mesh.totalHaloPairs)*sizeof(dlong), ElementList);
+ o_ElementList = device.malloc((mesh.Nelements+mesh.totalHaloPairs)*Nfields*sizeof(dlong), ElementList);
  o_invVT       = device.malloc(mesh.Np*mesh.Np*sizeof(dfloat), invVT); 
 
  // o_invVT1D     = device.malloc(mesh.Nfp*mesh.Nfp*sizeof(dfloat), invVT1D); 

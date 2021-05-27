@@ -26,7 +26,6 @@ SOFTWARE.
 
 
 @kernel void lssAdvectionCubatureSurfaceTri2D(const dlong Nelements,
-                                    const dlong offset,
                                     @restrict const  dfloat *  vgeo,
                                     @restrict const  dfloat *  sgeo,
                                     @restrict const  dlong  *  vmapM,
@@ -65,14 +64,22 @@ SOFTWARE.
           const dlong idM = vmapM[id];
           const dlong idP = vmapP[id];
           // load negative and positive trace node values of velocity
-          s_uM[es][n] = U[idM+0*offset];
-          s_vM[es][n] = U[idM+1*offset];
-
-          s_uP[es][n] = U[idP+0*offset];
-          s_vP[es][n] = U[idP+1*offset];
-        
           s_qM[es][n] = q[idM];
           s_qP[es][n] = q[idP];
+          // Load Velocity Traces
+          const dlong eM = e;
+          const dlong eP = idP/p_Np;
+          const int vidM = idM%p_Np;
+          const int vidP = idP%p_Np;
+          const dlong qbaseM = eM*p_Np*p_NVfields + vidM;
+          const dlong qbaseP = eP*p_Np*p_NVfields + vidP;
+
+          s_uM[es][n] = U[qbaseM+0*p_Np];
+          s_vM[es][n] = U[qbaseM+1*p_Np];
+
+          s_uP[es][n] = U[qbaseP+0*p_Np];
+          s_vP[es][n] = U[qbaseP+1*p_Np];
+        
       }
       }
     }

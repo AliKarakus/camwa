@@ -26,7 +26,6 @@ SOFTWARE.
 
 // batch process elements
 @kernel void lssRedistanceSurfaceTri2D(const dlong Nelements,
-                                  const dlong offset,
                                   @restrict const  dfloat *  sgeo,
                                   @restrict const  dfloat *  LIFTT,
                                   @restrict const  dlong  *  vmapM,
@@ -36,7 +35,6 @@ SOFTWARE.
                                   @restrict const  dfloat *  x,
                                   @restrict const  dfloat *  y,
                                   @restrict const  dfloat *  z,
-                                  @restrict const  dfloat *  sq,                                  
                                   @restrict const  dfloat *  q,
                                   @restrict const  dfloat *  gradq,
                                   @restrict dfloat *  rhsq){
@@ -45,10 +43,15 @@ SOFTWARE.
   for(dlong eo=0;eo<Nelements;eo+=p_NblockS;@outer(0)){
 
     // @shared storage for flux terms
-    @shared dfloat s_pf1[p_NblockS][p_NfacesNfp];
-    @shared dfloat s_pf2[p_NblockS][p_NfacesNfp];
-    @shared dfloat s_qf1[p_NblockS][p_NfacesNfp];
-    @shared dfloat s_qf2[p_NblockS][p_NfacesNfp];
+    @shared dfloat s_ppf1[p_NblockS][p_NfacesNfp];
+    @shared dfloat s_ppf2[p_NblockS][p_NfacesNfp];
+    @shared dfloat s_qpf1[p_NblockS][p_NfacesNfp];
+    @shared dfloat s_qpf2[p_NblockS][p_NfacesNfp];
+
+    @shared dfloat s_pmf1[p_NblockS][p_NfacesNfp];
+    @shared dfloat s_pmf2[p_NblockS][p_NfacesNfp];
+    @shared dfloat s_qmf1[p_NblockS][p_NfacesNfp];
+    @shared dfloat s_qmf2[p_NblockS][p_NfacesNfp];
 
     // for all face nodes of all elements
     for(int es=0;es<p_NblockS;++es;@inner(1)){
@@ -71,14 +74,26 @@ SOFTWARE.
             const dlong idM = vmapM[id];
             const dlong idP = vmapP[id];
 
+             // Load Velocity Traces
+            const dlong eM = e;
+            const dlong eP = idP/p_Np;
+            const int vidM = idM%p_Np;
+            const int vidP = idP%p_Np;
+
+            const dlong qbaseM = eM*p_Np*p_Nfields + vidM;
+            const dlong qbaseP = eP*p_Np*p_Nfields + vidP;
+
             // load traces
-            const dfloat qM = q[idM];  dfloat qP = q[idP];
+            const dfloat qpM = q[qbaseM + 0*p_Np];  dfloat qpP = q[qbaseP + 0*p_Np];
+            const dfloat qmM = q[qbaseM + 1*p_Np];  dfloat qmP = q[qbaseP + 1*p_Np];
 
             // apply boundary condition
             const int bc = EToB[face+p_Nfaces*e];
-            if(bc>0){
-              lssDirichletConditions2D(bc, time, x[idM], y[idM], nx, ny, qM, &qP);
-            }
+            // Change this later AK !!!!!!!!!
+            // if(bc>0){
+            //   qpP = qpM; qmP = qmM; 
+            //   // lssDirichletConditions2D(bc, time, x[idM], y[idM], nx, ny, qpM, &qpP);
+            // }
             
             const dfloat sc = invJ*sJ; 
             // simple upwind
@@ -86,20 +101,17 @@ SOFTWARE.
             dfloat uny = 0.0, dny = 1.0; 
             if(nx>= 0){unx = 1.0, dnx = 0.0;}
             if(ny>= 0){uny = 1.0, dny = 0.0;}
-            // const dfloat unx =  nx >=0 ? 1.0 : 0.0; 
-            // const dfloat dnx =  nx  <0 ? 1.0 : 0.0; 
-            // const dfloat uny =  ny >=0 ? 1.0 : 0.0; 
-            // const dfloat dny =  ny  <0 ? 1.0 : 0.0; 
 
-            // // sJ/J * (f(q) - q^-)
-            // s_pf1[es][n]= sc*nx*( (dnx*qM  + unx*qP) -  qM );
-            // s_pf2[es][n]= sc*nx*( (unx*qM  + dnx*qP) -  qM );
-            // s_qf1[es][n]= sc*ny*( (dny*qM  + uny*qP) -  qM );
-            // s_qf2[es][n]= sc*ny*( (uny*qM  + dny*qP) -  qM );// sJ/J * (f(q) - q^-)
-            s_pf1[es][n]= sc*nx*( (dnx*qM  + unx*qP));
-            s_pf2[es][n]= sc*nx*( (unx*qM  + dnx*qP));
-            s_qf1[es][n]= sc*ny*( (dny*qM  + uny*qP));
-            s_qf2[es][n]= sc*ny*( (uny*qM  + dny*qP));
+            s_ppf1[es][n]= sc*nx*( (dnx*qpM  + unx*qpP));
+            s_ppf2[es][n]= sc*nx*( (unx*qpM  + dnx*qpP));
+            s_qpf1[es][n]= sc*ny*( (dny*qpM  + uny*qpP));
+            s_qpf2[es][n]= sc*ny*( (uny*qpM  + dny*qpP));
+
+            s_pmf1[es][n]= sc*nx*( (dnx*qmM  + unx*qmP));
+            s_pmf2[es][n]= sc*nx*( (unx*qmM  + dnx*qmP));
+            s_qmf1[es][n]= sc*ny*( (dny*qmM  + uny*qmP));
+            s_qmf2[es][n]= sc*ny*( (uny*qmM  + dny*qmP));
+
           }
         }
       }
@@ -114,31 +126,50 @@ SOFTWARE.
         const dlong e = eo + es;
         if(e<Nelements){
           if(n<p_Np){
-            const dlong id = e*p_Np+n;
-            dfloat p1 = 0.f, p2 = 0.f; 
-            dfloat q1 = 0.f, q2 = 0.f; 
-            
+            dfloat pp1 = 0.f, pp2 = 0.f; 
+            dfloat qp1 = 0.f, qp2 = 0.f;   
+
+            dfloat pm1 = 0.f, pm2 = 0.f; 
+            dfloat qm1 = 0.f, qm2 = 0.f;   
             // 
             #pragma unroll p_NfacesNfp
               for(int m=0;m<p_NfacesNfp;++m){
                 const dfloat L = LIFTT[n+m*p_Np];
-                p1 += L*s_pf1[es][m];
-                p2 += L*s_pf2[es][m];
-                q1 += L*s_qf1[es][m];
-                q2 += L*s_qf2[es][m];
+                pp1 += L*s_ppf1[es][m];
+                pp2 += L*s_ppf2[es][m];
+                qp1 += L*s_qpf1[es][m];
+                qp2 += L*s_qpf2[es][m];
+
+                pm1 += L*s_pmf1[es][m];
+                pm2 += L*s_pmf2[es][m];
+                qm1 += L*s_qmf1[es][m];
+                qm2 += L*s_qmf2[es][m];
               }
-            const dfloat sqn  = sq[id];
-            const dfloat dqdx = gradq[id + 0*offset];
-            const dfloat dqdy = gradq[id + 1*offset];
 
-            p1 +=  dqdx; p2 +=  dqdx; 
-            q1 +=  dqdy; q2 +=  dqdy;
+            // ids on gradient
+            const dlong idg = e*p_Np*p_Nfields*p_dim + n;
+            const dfloat dqpdx = gradq[idg + 0*p_Np];
+            const dfloat dqpdy = gradq[idg + 1*p_Np];
+            const dfloat dqmdx = gradq[idg + 2*p_Np];
+            const dfloat dqmdy = gradq[idg + 3*p_Np];
 
-            const dfloat P = 0.5f*(p1+p2); 
-            const dfloat Q = 0.5f*(q1+q2); 
+            pp1 +=  dqpdx; pp2 +=  dqpdx; 
+            qp1 +=  dqpdy; qp2 +=  dqpdy;
+
+            pm1 +=  dqmdx; pm2 +=  dqmdx; 
+            qm1 +=  dqmdy; qm2 +=  dqmdy;
+
+            const dfloat pP = 0.5f*(pp1+pp2); 
+            const dfloat pQ = 0.5f*(qp1+qp2); 
+
+            const dfloat mP = 0.5f*(pm1+pm2); 
+            const dfloat mQ = 0.5f*(qm1+qm2); 
            
+            // back to original id 
+            const dlong id = e*p_Np*p_Nfields + n;
             // LLF Numerical Hamiltonian
-            rhsq[id] =  -( sqn*( sqrt( P*P+Q*Q )-1.0) -0.5f*(p1-p2)-0.5*(q1-q2));
+            rhsq[id + 0*p_Np] =  -(( sqrt( pP*pP+pQ*pQ ))-0.5f*(pp1-pp2)-0.5*(qp1-qp2));
+            rhsq[id + 1*p_Np] =  -(( sqrt( mP*mP+mQ*mQ ))-0.5f*(pm1-pm2)-0.5*(qm1-qm2));
           }
         }
       }

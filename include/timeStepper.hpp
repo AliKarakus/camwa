@@ -49,6 +49,7 @@ public:
   occa::properties& props;
 
   dfloat dt;
+  int outputStep; 
 
   timeStepper_t(dlong Nelements, dlong NhaloElements,
                  int Np, int Nfields, solver_t& _solver):

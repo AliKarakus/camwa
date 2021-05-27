@@ -28,13 +28,6 @@ SOFTWARE.
 #include "subcell2D.hpp"
 // #include "subcell3D.hpp"
 
-// subcell_t:: subcell_t(mesh_t &_mesh, settings_t& _settings):
-//     mesh(_mesh),
-//     comm(_mesh.comm),
-//     device(_mesh.device),
-//     settings(_settings),
-//     props(_mesh.props){};
-
 subcell_t:: subcell_t(solver_t &_solver):
     mesh(_solver.mesh),
     comm(_solver.comm),
@@ -70,7 +63,7 @@ subcell_t:: subcell_t(solver_t &_solver):
     // mesh = new meshHex3D(device, comm, settings, props);
     // break;
   }
-
+   
   // subcell->settings.getSetting("SUBCELL NUMBER", subcell->N);
   // printf("%d\n", subcell->N);
   

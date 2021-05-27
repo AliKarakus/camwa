@@ -34,6 +34,7 @@ lserk4::lserk4(dlong Nelements, dlong NhaloElements,
   timeStepper_t(Nelements, NhaloElements, Np, Nfields, _solver) {
 
   Nrk = 5;
+  outputStep = 0; 
 
   o_resq = device.malloc(N*sizeof(dfloat));
   o_rhsq = device.malloc(N*sizeof(dfloat));
@@ -92,7 +93,8 @@ void lserk4::Run(occa::memory &o_q, dfloat start, dfloat end) {
   while (time < end) {
 
     if (time<outputTime && time+dt>=outputTime) {
-
+      
+      outputStep = 1; 
       //save current state
       occa::memory o_saveq = device.malloc(N*sizeof(dfloat));
       o_saveq.copyFrom(o_q, N*sizeof(dfloat));
@@ -110,6 +112,8 @@ void lserk4::Run(occa::memory &o_q, dfloat start, dfloat end) {
       o_saveq.free();
 
       outputTime += outputInterval;
+
+      outputStep=0; 
     }
 
     //check for final timestep
@@ -138,7 +142,9 @@ void lserk4::Step(occa::memory &o_q, dfloat time, dfloat _dt) {
     // update solution using Runge-Kutta
     updateKernel(N, _dt, rka[rk], rkb[rk],
                  o_rhsq, o_resq, o_q);
+
   }
+    solver.rhsa(o_q, time, dt); 
 }
 
 lserk4::~lserk4() {
@@ -238,6 +244,8 @@ void lserk4_subcell::Step(occa::memory &o_q, dfloat time, dfloat _dt) {
 
     }
   }
+
+  solver.rhsa(o_q, time, dt); 
 }
 
 lserk4_subcell::~lserk4_subcell() {

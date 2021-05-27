@@ -26,7 +26,6 @@ SOFTWARE.
 
 
 @kernel void lssAdvectionVolumeTri2D(const dlong Nelements,
-                                  const dlong offset, 
                                   @restrict const  dfloat *  vgeo,
                                   @restrict const  dfloat *  DT,
                                             const  dfloat    t,
@@ -49,10 +48,10 @@ SOFTWARE.
       const dfloat dsdx = vgeo[e*p_Nvgeo + p_SXID];
       const dfloat dsdy = vgeo[e*p_Nvgeo + p_SYID];
 
-      const dlong  id = e*p_Np + n;
-      const dfloat qn = q[id];
-      const dfloat un = U[id + 0*offset]; // use flow solver side offset !!!!
-      const dfloat vn = U[id + 1*offset]; // use flow solver side offset !!!!
+      const dlong  id = e*p_Np*p_NVfields + n;
+      const dfloat qn = q[e*p_Np +n];
+      const dfloat un = U[id + 0*p_Np]; 
+      const dfloat vn = U[id + 1*p_Np]; 
       
       const dfloat qxn = qn*un;  // flux function: assumes incompressible flow field!!!
       const dfloat qyn = qn*vn;  // flux function: assumes incompressible flow field!!!

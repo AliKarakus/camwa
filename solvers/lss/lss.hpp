@@ -53,7 +53,12 @@ public:
   int advection;
   int redistance;
   int subcellStabilization;
+  int Nfields; 
+  int NVfields; 
+  int Nrecon; // required number of history point for reconstruction in time
   dlong offset; 
+  int shiftIndex; 
+  int historyIndex; 
 
   dfloat eps; // regularization thickness for level set function
 
@@ -63,13 +68,19 @@ public:
   halo_t* traceHalo;
 
   dfloat *q;
-  dfloat *U; 
+  dfloat *U;
+  dfloat *phi; 
+  dfloat *phiH;  
   dfloat *gradq;
-  dfloat *sgnq;
-  dfloat *ssgnq; // sign for subcell
+  dfloat *sgnq; // Depreceated
+  dfloat *ssgnq; //Depreceated
   dfloat *sq; 
 
+  dfloat *rtime; 
+  occa::memory o_rtime; 
 
+
+  occa::memory o_invDegree;
   // dummy delete later
   dfloat * sface; 
   occa::memory o_sface; 
@@ -77,8 +88,9 @@ public:
   occa::memory o_gradq;
   occa::memory o_q;
   occa::memory o_U;
-  occa::memory o_sgnq; 
-  occa::memory o_ssgnq, o_sq; 
+  occa::memory o_phi, o_phiH; 
+  occa::memory o_sgnq; // Depreceated
+  occa::memory o_ssgnq, o_sq; // Depreceated
 
   occa::memory o_Mq;
 
@@ -113,6 +125,10 @@ public:
   // occa::kernel skyline1DKernel; 
   occa::kernel findNeighKernel; 
 
+  occa::kernel reconstructENOKernel; 
+  occa::kernel setAuxiliaryFieldKernel; 
+  occa::kernel initialHistoryKernel;
+
   // occa::kernel subcellSignKernel; // This could be part of subcell 
   // occa::kernel subcellComputeKernel; 
 
@@ -135,6 +151,7 @@ public:
                             lssSettings_t& settings);
 
   void Run();
+  void Error(dfloat time, int tstep);
 
   void Advection(occa::memory& o_Q, occa::memory& o_RHS, const dfloat T); 
   void Redistance(occa::memory& o_Q, occa::memory& o_RHS, const dfloat T); 
@@ -145,7 +162,9 @@ public:
 
   void PlotFields(dfloat* Q, char *fileName);
 
-  void rhsf(occa::memory& o_q, occa::memory& o_rhs, const dfloat time);
+  void rhsf(occa::memory& o_q, occa::memory& o_RHS, const dfloat dt);
+  void rhsa(occa::memory& o_q, const dfloat time, const dfloat dt);
+
   void rhsf_subcell(occa::memory& o_Q, occa::memory &sQ, occa::memory& o_RHS,occa::memory& o_sRHS, const dfloat T);
   void reconstruct_subcell(occa::memory& o_Q, occa::memory& sQ);
 

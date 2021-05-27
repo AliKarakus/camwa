@@ -26,7 +26,6 @@ SOFTWARE.
 
 
 @kernel void lssAdvectionCubatureVolumeTri2D(const dlong Nelements,
-                                    const dlong offset,
                                     @restrict const  dfloat *  vgeo,
                                     @restrict const  dfloat *  cubvgeo,
                                     @restrict const  dfloat *  cubDWmatrices,
@@ -55,10 +54,10 @@ SOFTWARE.
       for(int n=0;n<p_cubNp;++n;@inner(0)){  
         e = eo+es; 
         if(e<Nelements && n<p_Np){
-            const dlong id = e*p_Np+n;
-            s_u[es][n]   = U[id + 0*offset];
-            s_v[es][n]   = U[id + 1*offset];
-            s_q[es][n]   = q[id];
+            const dlong id = e*p_Np*p_NVfields+n;
+            s_u[es][n]   = U[id + 0*p_Np];
+            s_v[es][n]   = U[id + 1*p_Np];
+            s_q[es][n]   = q[e*p_Np + n];
         } 
       }
     }

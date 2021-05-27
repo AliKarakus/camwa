@@ -25,7 +25,6 @@ SOFTWARE.
 */
 
 @kernel void lssSetFlowField2D(const dlong Nelements,
-                               const dlong offset,
                                          const dfloat time,
                                          @restrict const  dfloat *  x,
                                          @restrict const  dfloat *  y,
@@ -43,9 +42,9 @@ SOFTWARE.
 
       lssAdvectionField2D(time, x[id], y[id], qn, &un, &vn);
 
-      const dlong qbase = e*p_Np + n;
-      U[qbase + 0*offset] = un;
-      U[qbase + 1*offset] = vn;
+      const dlong qbase = e*p_Np*p_NVfields + n;
+      U[qbase + 0*p_Np] = un;
+      U[qbase + 1*p_Np] = vn;
     }
   }
 }

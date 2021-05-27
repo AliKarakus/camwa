@@ -25,7 +25,6 @@ SOFTWARE.
 */
 
 @kernel void lssRedistanceVolumeTri2D(const dlong Nelements,
-                                  const dlong offset, 
                                   @restrict const  dfloat *  vgeo,
                                   @restrict const  dfloat *  DT,
                                             const  dfloat    t,
@@ -37,11 +36,13 @@ SOFTWARE.
 
   for(dlong e=0;e<Nelements;++e;@outer(0)){
 
-    @shared dfloat s_q[p_Np];
+    @shared dfloat s_qp[p_Np];
+    @shared dfloat s_qm[p_Np];
 
     for(int n=0;n<p_Np;++n;@inner(0)){
-      const dlong id = e*p_Np + n;
-      s_q[n]          = q[id];
+      const dlong id = e*p_Np*p_Nfields + n;
+      s_qp[n]          = q[id + 0*p_Np];
+      s_qm[n]          = q[id + 1*p_Np];
     }
 
     @barrier("local");
@@ -53,20 +54,32 @@ SOFTWARE.
       const dfloat dsdx = vgeo[e*p_Nvgeo + p_SXID];
       const dfloat dsdy = vgeo[e*p_Nvgeo + p_SYID];
 
-      dfloat dqdr = 0, dqds = 0; 
+      dfloat dqpdr = 0, dqpds = 0; 
+      dfloat dqmdr = 0, dqmds = 0; 
 
       for(int i=0;i<p_Np;++i){
-        const dfloat qn = s_q[i];
-        dqdr += DT[n+i*p_Np+0*p_Np*p_Np]*qn;
-        dqds += DT[n+i*p_Np+1*p_Np*p_Np]*qn;
+        const dfloat qpn = s_qp[i];
+        const dfloat qmn = s_qm[i];
+        const dfloat dr  = DT[n+i*p_Np+0*p_Np*p_Np];
+        const dfloat ds  = DT[n+i*p_Np+1*p_Np*p_Np];
+
+        dqpdr += dr*qpn;
+        dqpds += ds*qpn;
+ 
+        dqmdr += dr*qmn;
+        dqmds += ds*qmn;
       }
 
-      const dfloat dqdx = drdx*dqdr + dsdx*dqds;
-      const dfloat dqdy = drdy*dqdr + dsdy*dqds;
+      const dfloat dqpdx = drdx*dqpdr + dsdx*dqpds;
+      const dfloat dqpdy = drdy*dqpdr + dsdy*dqpds;
+      const dfloat dqmdx = drdx*dqmdr + dsdx*dqmds;
+      const dfloat dqmdy = drdy*dqmdr + dsdy*dqmds;
 
-      const dlong id = e*p_Np + n;
-      gradq[id + 0*offset] = -dqdx;
-      gradq[id + 1*offset] = -dqdy;
+      const dlong id = e*p_Np*p_Nfields*p_dim + n;
+      gradq[id + 0*p_Np] = -dqpdx;
+      gradq[id + 1*p_Np] = -dqpdy;
+      gradq[id + 2*p_Np] = -dqmdx;
+      gradq[id + 3*p_Np] = -dqmdy;
     }
   }
 }

@@ -24,7 +24,7 @@ SOFTWARE.
 
 */
 
-@kernel void lssInitialCondition2D(const dlong Nelements,
+@kernel void lssAdvectionInitialCondition2D(const dlong Nelements,
                                          const dfloat time,
                                          @restrict const  dfloat *  x,
                                          @restrict const  dfloat *  y,
@@ -44,3 +44,57 @@ SOFTWARE.
     }
   }
 }
+
+
+@kernel void lssRedistanceInitialCondition2D(const dlong Nelements,
+                                         const dfloat time,
+                                         @restrict const  dfloat *  x,
+                                         @restrict const  dfloat *  y,
+                                         @restrict const  dfloat *  z,
+                                         @restrict        dfloat *  q){
+
+  for(dlong e=0;e<Nelements;++e;@outer(0)){
+    for(int n=0;n<p_Np;++n;@inner(0)){
+      const dlong id = e*p_Np + n;
+
+      dfloat r_q = 0.0;
+
+      lssInitialConditions2D(time, x[id], y[id], &r_q);
+
+      const dlong qbase = e*p_Np + n;
+      q[qbase] =  r_q; // Create + flow
+
+      // const dlong qbase = e*p_Np*p_Nfields + n;
+      // q[qbase + 0*p_Np] =  r_q; // Create + flow
+      // q[qbase + 1*p_Np] = -r_q; // Create - flow
+    }
+  }
+}
+
+
+
+@kernel void lssRedistanceSetAuxiliaryField2D(const dlong Nelements,
+                                         const dfloat time,
+                                         @restrict const  dfloat *  x,
+                                         @restrict const  dfloat *  y,
+                                         @restrict const  dfloat *  z,
+                                         @restrict const  dfloat *  phi,
+                                         @restrict        dfloat *  q){
+
+  for(dlong e=0;e<Nelements;++e;@outer(0)){
+    for(int n=0;n<p_Np;++n;@inner(0)){
+      const dlong id = e*p_Np + n;
+
+      dfloat r_q = phi[id];
+
+      const dlong qbase = e*p_Np*p_Nfields + n;
+      q[qbase + 0*p_Np] =  r_q; // Create + flow
+      q[qbase + 1*p_Np] = -r_q; // Create - flow
+
+    }
+  }
+}
+
+
+
+

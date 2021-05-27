@@ -26,7 +26,6 @@ SOFTWARE.
 
 // batch process elements
 @kernel void lssAdvectionSurfaceTri2D(const dlong Nelements,
-                                  const dlong offset,
                                   @restrict const  dfloat *  sgeo,
                                   @restrict const  dfloat *  LIFTT,
                                   @restrict const  dlong  *  vmapM,
@@ -66,12 +65,20 @@ SOFTWARE.
             const dlong id  = e*p_Nfp*p_Nfaces + n;
             const dlong idM = vmapM[id];
             const dlong idP = vmapP[id];
-
             // load traces
             const dfloat qM = q[idM];  dfloat qP = q[idP];
 
-            const dfloat uM = U[idM + 0*offset]; const dfloat uP = U[idP+ 0*offset];
-            const dfloat vM = U[idM + 1*offset]; const dfloat vP = U[idP+ 1*offset];
+            // Load Velocity Traces
+            const dlong eM = e;
+            const dlong eP = idP/p_Np;
+            const int vidM = idM%p_Np;
+            const int vidP = idP%p_Np;
+
+            const dlong qbaseM = eM*p_Np*p_NVfields + vidM;
+            const dlong qbaseP = eP*p_Np*p_NVfields + vidP;
+
+            const dfloat uM = U[qbaseM + 0*p_Np]; const dfloat uP = U[qbaseP+ 0*p_Np];
+            const dfloat vM = U[qbaseM + 1*p_Np]; const dfloat vP = U[qbaseP+ 1*p_Np];
 
             // apply boundary condition
             const int bc = EToB[face+p_Nfaces*e];
