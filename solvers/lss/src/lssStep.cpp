@@ -233,7 +233,19 @@ void lss_t::Redistance_Subcell(occa::memory& o_Q, occa::memory & o_sQ,
 
     // mesh.halo->ExchangeStart(o_Q, mesh.Np, ogs_dfloat); 
 
+#if 1
+const dfloat Nlocal= mesh.Nelements*mesh.Np*Nfields; 
+ // First gather-scatter then interpolate to the vertices of subcells
+ // o_gsq.copyFrom(o_Q, Nlocal*sizeof(dfloat),0, fieldid*Nlocal*sizeof(dfloat)); 
+ // o_gsq.copyFrom(o_Q, Nlocal*sizeof(dfloat),0,0); 
+ // mesh.ogs->GatherScatterVec(o_gsq, Nfields, ogs_dfloat, ogs_add, ogs_sym);
+ // mesh.ogs->GatherScatterMany(o_gsq, Nfields, mesh.Np, ogs_dfloat, ogs_add, ogs_sym);
+#endif
+
+
     for(int fieldid=0; fieldid<Nfields; fieldid++){
+
+
     // Compute dq/dx for DG and DGFV elements
      partialRedistanceVolumeKernel(mesh.Nelements,
                                     fieldid,
@@ -293,7 +305,7 @@ void lss_t::Redistance_Subcell(occa::memory& o_Q, occa::memory & o_sQ,
                   o_Q, 
                   o_sQ);
 
-       
+#if 1       
  // Reconstruct face values for all subcells 
      reconstructFaceKernel(mesh.Nelements, 
                           fieldid,
@@ -306,6 +318,50 @@ void lss_t::Redistance_Subcell(occa::memory& o_Q, occa::memory & o_sQ,
                           o_sQ,
                           o_sface);   
 
+
+#else
+
+// reconstructFaceKernel(mesh.Nelements, 
+//                           fieldid,
+//                           subcell->o_ElementList,
+//                           subcell->o_vgeo,
+//                           subcell->o_sgeo, 
+//                           subcell->o_emapP,
+//                           subcell->o_fmapP, 
+//                           o_Q, 
+//                           o_sQ,
+//                           o_sface);   
+
+ extractFieldKernel(mesh.Nelements, fieldid, o_Q, o_gsq); 
+
+ mesh.ogs->GatherScatter(o_gsq, ogs_dfloat, ogs_add, ogs_sym);
+ 
+ // Now project it
+  projectVertexKernel(mesh.Nelements,
+                     fieldid,
+                     1,  
+                     subcell->o_ElementList, 
+                     o_invDegree, 
+                     subcell->o_PVMT,
+                     o_gsq, 
+                     o_svq);
+
+
+
+ reconstructFace2Kernel(mesh.Nelements, 
+                          fieldid,
+                          subcell->o_mEToV, 
+                          subcell->o_ElementList,
+                          subcell->o_vgeo,
+                          subcell->o_sgeo, 
+                          subcell->o_emapP,
+                          subcell->o_fmapP, 
+                          o_Q, 
+                          o_sQ,
+                          o_svq,
+                          o_sface);   
+
+#endif
 
 
     //  mesh.halo->Exchange(o_sface, subcell->Nsubcells*mesh.Nfaces, ogs_dfloat);

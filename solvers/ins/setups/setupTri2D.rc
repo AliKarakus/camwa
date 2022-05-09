@@ -2,11 +2,12 @@
 2.0
 
 [DATA FILE]
-data/insVortex2D.h
+data/insUniform2D.h
+#data/insVortex2D.h
 
 [MESH FILE]
-#../../meshes/insVortex2D_h8.msh
-BOX
+../../meshes/insFenceTri2D.msh
+#BOX
 
 [MESH DIMENSION]
 2
@@ -36,10 +37,10 @@ BOX
 2
 
 [POLYNOMIAL DEGREE]
-4
+3
 
 [THREAD MODEL]
-CUDA
+CUDA 
 
 [PLATFORM NUMBER]
 0
@@ -48,7 +49,7 @@ CUDA
 0
 
 [VISCOSITY]
-0.05
+0.01
 
 # can be CUBATURE or COLLOCATION
 [ADVECTION TYPE]
@@ -79,7 +80,7 @@ DOPRI5
 TRUE
 
 [OUTPUT FILE NAME]
-ins
+insFence
 
 #################################################
 ########## Velocity Solver Options ##############

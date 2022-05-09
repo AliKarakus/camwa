@@ -165,6 +165,17 @@ void subcellTri2D::OccaSetup(){
  o_PMT  = device.malloc(mesh.Np*Nsubcells*sizeof(dfloat), PMT);
  free(PMT); 
 
+
+ // Projection Matrix
+ dfloat *PVMT = (dfloat *) malloc(mesh.Np*Np*sizeof(dfloat)); 
+ for(int n=0; n<Np; n++){
+  for(int m=0; m<mesh.Np; m++){
+    PVMT[m*Np +n] = PVM[n*mesh.Np + m]; 
+  }
+ }
+ o_PVMT  = device.malloc(mesh.Np*Np*sizeof(dfloat), PVMT);
+ free(PVMT); 
+
 // Recontruction Matrix
  dfloat *RMT = (dfloat *) malloc(mesh.Np*Nsubcells*sizeof(dfloat)); 
  for(int n=0; n<mesh.Np; n++){
@@ -244,12 +255,15 @@ free(SLIFTT);
  o_mFToE = device.malloc(Nfaces*N*sizeof(int), mFToE);
  o_mFToF = device.malloc(Nfaces*N*sizeof(int), mFToF);
  o_mDGID = device.malloc(Nfaces*N*sizeof(int), mDGID);
+ o_mEToV = device.malloc(Nsubcells*Nverts*sizeof(int),mEToV);
 
   // Some Defines
   kernelInfo["defines/" "s_Nvgeo"] = Nvgeo;  
   kernelInfo["defines/" "s_Nsgeo"] = Nsgeo;  
   kernelInfo["defines/" "s_Ncells"]= Nsubcells;  
+  kernelInfo["defines/" "s_Np"]    = Np;  
   kernelInfo["defines/" "s_N"]     = N; 
+  kernelInfo["defines/" "s_Nverts"]= Nverts; 
   kernelInfo["defines/" "s_Nint"]  = Nint; 
   kernelInfo["defines/" "s_Next"]  = Next; 
   // kernelInfo["defines/" "s_Nedges"]  = Nedges; 
@@ -260,7 +274,7 @@ free(SLIFTT);
   kernelInfo["defines/" "s_FVFV_TYPE"]  = (int)FVFV_TYPE; 
 
   
-  int maxNodes = std::max(Nsubcells, mesh.Np); 
+  int maxNodes = std::max(std::max(Nsubcells, mesh.Np),Np); 
   kernelInfo["defines/" "s_maxNodes"] = maxNodes;  
 
   kernelInfo["defines/" "s_NfacesNfp"] = Nfaces*N;   
@@ -304,7 +318,7 @@ void subcellTri2D::CreateMinorGrid(){
 
 if(settings.compareSetting("SUBCELL MINOR GRID","EQUISPACED")){
   // Using triangle does not have to be!!!!
-  Nverts = mesh.Nverts; // Subcell could be in different topology but not now
+  Nverts = mesh.Nverts; // Subcell could be in different topology but not now!
   Nfaces = mesh.Nfaces; 
   // Nedges = mesh.Nfaces; 
   // Currently equispaced triangle
@@ -347,16 +361,7 @@ if(settings.compareSetting("SUBCELL MINOR GRID","EQUISPACED")){
   
   mEToV = (int*) malloc(Nsubcells*Nverts*sizeof(int));
   WBNodesEToVTri2D(N, mEToV);
-  
-  // for(int s=0; s<Nsubcells; s++){
-  //   for(int v=0; v<Nverts; v++){
-  //     printf("%d ", mEToV[s*Nverts + v]);
-  //   }
-  //   printf("\n");
-  // } 
-
 }
-
 
 // Create basic local data i.e. center, face centers
 cr = (dfloat *) malloc(Nsubcells*sizeof(dfloat));
@@ -406,7 +411,6 @@ for(int s=0; s<Nsubcells; s++){
   const dfloat yv3 = vs[v3];    
   // A_subcell/A_reference
   mJ[s] = 0.5*((xv2-xv1)*(yv3-yv1) - (xv3-xv1)*(yv2-yv1))/2.0;
-  // printf("J = %.12e \n", mJ[s]);
 }
 
 // Required for mixed element lifting
@@ -455,14 +459,9 @@ void subcellTri2D::GeometricFactors(){
       const int sv2 = mEToV[s*Nverts + 1]; 
       const int sv3 = mEToV[s*Nverts + 2];
 
-     const dfloat rn1 = vr[sv1];    
-     const dfloat sn1 = vs[sv1];    
-
-     const dfloat rn2 = vr[sv2];    
-     const dfloat sn2 = vs[sv2];    
-     
-     const dfloat rn3 = vr[sv3];    
-     const dfloat sn3 = vs[sv3];    
+     const dfloat rn1 = vr[sv1],sn1 = vs[sv1];    
+     const dfloat rn2 = vr[sv2],sn2 = vs[sv2];    
+     const dfloat rn3 = vr[sv3],sn3 = vs[sv3];    
 
      const dfloat sxe1 = -0.5*(rn1+sn1)*xe1 + 0.5*(1+rn1)*xe2 + 0.5*(1+sn1)*xe3;
      const dfloat sye1 = -0.5*(rn1+sn1)*ye1 + 0.5*(1+rn1)*ye2 + 0.5*(1+sn1)*ye3;
@@ -470,13 +469,20 @@ void subcellTri2D::GeometricFactors(){
      const dfloat sxe2 = -0.5*(rn2+sn2)*xe1 + 0.5*(1+rn2)*xe2 + 0.5*(1+sn2)*xe3;
      const dfloat sye2 = -0.5*(rn2+sn2)*ye1 + 0.5*(1+rn2)*ye2 + 0.5*(1+sn2)*ye3;
 
-     const dfloat sxe3 = -0.5*(rn1+sn3)*xe1 + 0.5*(1+rn3)*xe2 + 0.5*(1+sn3)*xe3;
-     const dfloat sye3 = -0.5*(rn1+sn3)*ye1 + 0.5*(1+rn3)*ye2 + 0.5*(1+sn3)*ye3;
+     const dfloat sxe3 = -0.5*(rn3+sn3)*xe1 + 0.5*(1+rn3)*xe2 + 0.5*(1+sn3)*xe3;
+     const dfloat sye3 = -0.5*(rn3+sn3)*ye1 + 0.5*(1+rn3)*ye2 + 0.5*(1+sn3)*ye3;
       // 1/ Area of triangle
      const dfloat vol = 0.5*((sxe2-sxe1)*(sye3-sye1) - (sxe3-sxe1)*(sye2-sye1));
       vgeo[Nvgeo*elm + IVID] = 1.0 / vol;
+      // if(e==1)
+      // printf("%d %d %.4e %.4e %.4e\n", e,s, vgeo[Nvgeo*elm + CXID],vgeo[Nvgeo*elm + CYID],1/vgeo[Nvgeo*elm + IVID]);
     }
+   //  if(e==1)
+   // printf("\n");
   }
+
+
+
   // //Use mesh halo exchange 
   mesh.halo->Exchange(vgeo, Nvgeo*Nsubcells, ogs_dfloat);
 
@@ -518,12 +524,11 @@ void subcellTri2D::GeometricFactors(){
        const dfloat sxe2 = -0.5*(rn2+sn2)*xe1 + 0.5*(1+rn2)*xe2 + 0.5*(1+sn2)*xe3;
        const dfloat sye2 = -0.5*(rn2+sn2)*ye1 + 0.5*(1+rn2)*ye2 + 0.5*(1+sn2)*ye3;
 
-       const dfloat sxe3 = -0.5*(rn1+sn3)*xe1 + 0.5*(1+rn3)*xe2 + 0.5*(1+sn3)*xe3;
-       const dfloat sye3 = -0.5*(rn1+sn3)*ye1 + 0.5*(1+rn3)*ye2 + 0.5*(1+sn3)*ye3;
+       const dfloat sxe3 = -0.5*(rn3+sn3)*xe1 + 0.5*(1+rn3)*xe2 + 0.5*(1+sn3)*xe3;
+       const dfloat sye3 = -0.5*(rn3+sn3)*ye1 + 0.5*(1+rn3)*ye2 + 0.5*(1+sn3)*ye3;
   
         // face 1
-        dfloat nx1 =  sye2-sye1;
-        dfloat ny1 = -(sxe2-sxe1);
+        dfloat nx1 =  sye2-sye1, ny1 = -(sxe2-sxe1);
         dfloat  d1 = sqrt((nx1)*(nx1)+(ny1)*(ny1));
 
         sgeo[elm*Nfaces*Nsgeo + 0*Nsgeo + FXID] = 0.5*(sxe1 + sxe2);  
@@ -636,17 +641,36 @@ for(int s=0; s<Nsubcells; s++){
 }
 
 
-// for(int i=0; i<Nsubcells; i++){
-//   for(int j=0; j<mesh.Np; j++){
-//     printf("%.4f ", Ptemp[i*mesh.Np + j]);
-//   }
-//   printf("\n");
-// }
-// printf("\n\n");
 
 // Get Vandermonde Matrix 
 dfloat *V2D = (dfloat *) malloc(mesh.Np*mesh.Np*sizeof(dfloat));
 mesh.VandermondeTri2D(mesh.N, mesh.Np, mesh.r, mesh.s, V2D);
+
+
+
+// Compute Interpolation Matrix
+dfloat *Veq2D = (dfloat *) malloc(mesh.Np*Np*sizeof(dfloat)); 
+dfloat *invV2D = (dfloat *) malloc(mesh.Np*mesh.Np*sizeof(dfloat));
+for(int i=0; i<mesh.Np*mesh.Np; i++){invV2D[i] = V2D[i];}
+matrixInverse(mesh.Np, invV2D);
+mesh.VandermondeTri2D(mesh.N, Np, vr, vs, Veq2D);
+
+PVM = (dfloat *) malloc(mesh.Np*Np*sizeof(dfloat)); 
+
+for(int i=0; i<Np; i++){
+    for(int j=0; j<mesh.Np; j++){
+      dfloat sum = 0; 
+      for(int m=0; m<mesh.Np; m++){
+        sum += Veq2D[i*mesh.Np +m]*invV2D[m*mesh.Np + j]; 
+      }
+     PVM[i*mesh.Np + j] = sum; 
+    }
+  }
+
+
+
+
+
 
 
 // PM = Pt*V^-1
@@ -667,6 +691,16 @@ matrixPInverse(Nsubcells, mesh.Np, RM);
 //   }
 //   printf("\n");
 // }
+
+
+// for(int i=0; i<mesh.Np; i++){
+//   for(int j=0; j<Nsubcells; j++){
+//     printf("%.4f ", RM[i*Nsubcells + j]);
+//   }
+//   printf("\n");
+// }
+
+
 
 // Create conservative face interpolation and its inverse
 // Required for DG-FV interface flux evaluation
@@ -757,6 +791,14 @@ for(int s=0; s<N; s++){
 // for(int j=0; j<mesh.Nfp; j++){
 //   for(int i=0; i<N; i++){
 //     printf("%.4f ", RFM[j*N+ i]);
+//   }
+//   printf("\n");
+// }
+
+
+// for(int j=0; j<N; j++){
+//   for(int i=0; i<mesh.Nfp; i++){
+//     printf("%.4f ", PFM[j*mesh.Nfp+ i]);
 //   }
 //   printf("\n");
 // }

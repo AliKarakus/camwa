@@ -27,14 +27,15 @@ SOFTWARE.
 // Level-Set function Rotated Square
 #define lssInitialConditions2D(t, x, y, q) \
 {                                       \
-  const dfloat xc = 3.5f/4.0f;           \
-  const dfloat yc = 2.0f/4.0f;         \
-  const dfloat A  = 1.2f;          \
-  const dfloat B  = 0.6f;          \
+  const dfloat xc = 0.875f;           \
+  const dfloat yc = 0.5f;         \
+  const dfloat A  = 1.0f;          \
+  const dfloat B  = 0.5f;          \
   const dfloat scale = pow( (x-xc)*(x-xc) + (y-yc)*(y-yc) + 0.1, 1.0); \
   (*q) = scale*(sqrt(x*x/(A*A) + y*y/(B*B)) - 1.0) ; \
 }
 
+  // const dfloat yc = 2.0f/4.0f;         \
 
 // LS Advective field
 #define lssAdvectionField2D(t, x, y, q, u, v) \

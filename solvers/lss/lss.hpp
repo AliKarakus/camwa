@@ -76,6 +76,11 @@ public:
   dfloat *ssgnq; //Depreceated
   dfloat *sq; 
 
+  // only for error estimates for paper
+  dfloat *phiex; 
+  
+  dfloat *gsq, *svq; 
+
   dfloat *rtime; 
   occa::memory o_rtime; 
 
@@ -91,7 +96,7 @@ public:
   occa::memory o_phi, o_phiH; 
   occa::memory o_sgnq; // Depreceated
   occa::memory o_ssgnq, o_sq; // Depreceated
-
+  occa::memory o_gsq, o_svq; // Gather-scatter version of filed for fv
   occa::memory o_Mq;
 
   occa::kernel advectionVolumeKernel;
@@ -115,8 +120,11 @@ public:
   occa::kernel reconstructInternalFaceKernel; 
   occa::kernel reconstructExternalFaceKernel; 
   occa::kernel reconstructFaceKernel; 
+  occa::kernel reconstructFace2Kernel; 
+  occa::kernel extractFieldKernel; 
 
   occa::kernel projectKernel; 
+  occa::kernel projectVertexKernel; 
   occa::kernel projectDGKernel; 
   occa::kernel reconstructKernel; 
   occa::kernel subcellComputeKernel; 

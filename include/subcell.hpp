@@ -59,10 +59,12 @@ dfloat *mJ; // Jacobian of minor grid
 int *faceVertices, NfaceVertices; 
 
 int *mFToE, *mFToF, *mDGID; 
-occa::memory o_mFToE, o_mFToF, o_mDGID;  
+occa::memory o_mFToE, o_mFToF, o_mDGID, o_mEToV;  
 
 dfloat *PM,  *RM; // volume reconstuction and projection
+dfloat *PVM;  // vertex  projection
 occa::memory o_PMT, o_RMT; 
+occa::memory o_PVMT;  
 
 dfloat *PFM, *RFM, *SLIFT; // face projection and reconstruction 
 occa::memory o_PFMT, o_RFMT, o_SLIFTT; 

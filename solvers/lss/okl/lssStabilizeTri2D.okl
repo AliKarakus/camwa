@@ -401,6 +401,74 @@
   }
 }
 
+
+
+
+// Project to FV vertex values
+@kernel void lssProjectVertexTri2D(const dlong Nelements,
+				const int fieldid, 
+			     const int all, 
+			     @restrict const dlong *elmList, 
+			     @restrict const dfloat *invDeg, 
+			     @restrict const dfloat *PVMT,                            
+			     @restrict const dfloat *  Q,
+			     @restrict dfloat *pQ){
+
+  for(dlong eo=0;eo<Nelements;eo+=s_Nblocks;@outer(0)){
+    @shared dfloat s_q[s_Nblocks][p_Np];
+    @exclusive int elmType; 
+    for(int es=0;es<s_Nblocks;++es;@inner(1)){
+      for(int n=0;n<s_maxNodes;++n;@inner(0)){
+	const dlong e = eo+es; 
+	if(e<Nelements){
+	  elmType = all ? s_FVFV_TYPE: elmList[e*p_Nfields + fieldid]; 
+	  if(n<p_Np && elmType==s_FVFV_TYPE){
+	  	const dfloat invdeg = invDeg[e*p_Np + n];
+	    // s_q[es][n] = invdeg*Q[e*p_Np*p_Nfields + n + fieldid*p_Np]; 
+	    s_q[es][n] = invdeg*Q[e*p_Np + n]; 
+	    // s_q[es][n] = Q[e*p_Np + n]; 
+	  }
+	}
+      }
+    }
+
+    @barrier("local"); 
+
+    for(int es=0;es<s_Nblocks;++es;@inner(1)){
+      for(int n=0;n<s_maxNodes;++n;@inner(0)){
+	const dlong e = eo+es;
+	if(n<s_Np && e<Nelements && elmType==s_FVFV_TYPE){
+	  dfloat sqn = 0; 
+	  for(int i=0; i<p_Np; i++){
+	    sqn += PVMT[n + i*s_Np]*s_q[es][i]; 
+	  }
+	  // const dlong id = e*s_Np*p_Nfields + n;  
+	  // pQ[id + fieldid*s_Np] = sqn; 
+	  const dlong id = e*s_Np + n;  
+	  pQ[id] = sqn; 
+	}
+      }
+    }
+
+  }
+}
+
+
+//  AK : Need to test this version of projection more !!!!!
+@kernel void lssExtractFieldTri2D(const dlong Nelements,
+				   const int fieldid, 			                                
+			       @restrict const dfloat *  Q,
+			       @restrict dfloat *vQ){
+  for(dlong e=0;e<Nelements;++e;@outer(0)){    
+    for(int n=0;n<p_Np;++n;@inner(0)){    
+	   	 vQ[e*p_Np + n]        = Q[e*p_Np*p_Nfields + n + fieldid*p_Np];
+      }
+    }
+  }
+
+
+
+
 //  AK : Need to test this version of projection more !!!!!
 @kernel void lssProjectDGTri2D(const dlong Nelements,
 				   const int fieldid, 
@@ -735,7 +803,7 @@ void WENO2Coeff(const dfloat dx1,  const dfloat dy1,
   dfloat a32 = det3*( (dy3-dy1)*qm + ( dy1)*qp3 +(-dy3)*qp1); 
   dfloat a33 = det3*(-(dx3-dx1)*qm + (-dx1)*qp3 +( dx3)*qp1); 
 
-  // AK: need to be muliplied with h^-2, formerly !!!!!
+  // AK: need to be muliplied with h^-1, formerly !!!!!
   dfloat l11 = sqrt(a12*a12 + a13*a13); // very ugly
   dfloat l12 = sqrt(a22*a22 + a23*a23); // very ugly
   dfloat l13 = sqrt(a32*a32 + a33*a33); // very ugly
@@ -869,6 +937,254 @@ dfloat lim = mymin(mymin(lim1,lim2),lim3);
 }
 
 
+
+
+// Compute WENO2 reconstruction with Least Squares
+void DGFV2(const dfloat xc,  const dfloat yc, const dfloat invA, 
+	         const dfloat xcp1,  const dfloat ycp1, 
+			     const dfloat xcp2,  const dfloat ycp2, 
+					 const dfloat xcp3,  const dfloat ycp3, 
+			     const dfloat nx1,   const dfloat ny1, const dfloat sA1,
+			     const dfloat nx2,   const dfloat ny2, const dfloat sA2,
+			     const dfloat nx3,   const dfloat ny3, const dfloat sA3,	     
+			     dfloat qm,  
+			     dfloat qp1, dfloat qp2,  dfloat qp3,
+			     dfloat qv1, dfloat qv2,  dfloat qv3,
+			     const int bc1, const int bc2, const int bc3, 
+			     dfloat *a1, dfloat *a2, dfloat *a3){
+
+// Gradient
+const dfloat dqdx = 0.5*(sA1*(qv1 + qv2)*nx1+sA2*(qv3 + qv2)*nx2+sA3*(qv3 + qv1)*nx3) * invA;
+const dfloat dqdy = 0.5*(sA1*(qv1 + qv2)*ny1+sA2*(qv3 + qv2)*ny2+sA3*(qv3 + qv1)*ny3) * invA;
+
+// Use gradient to reconstruct cell-center values at neigbour 
+// i.e qf1= neighbour cell center value at face 1
+const dfloat qf1 = qm + dqdx*(xcp1 - xc) + dqdy*(ycp1 - yc); 
+const dfloat qf2 = qm + dqdx*(xcp2 - xc) + dqdy*(ycp2 - yc); 
+const dfloat qf3 = qm + dqdx*(xcp3 - xc) + dqdy*(ycp3 - yc); 
+
+// Find min/max of neighbour
+dfloat qmin = mymin(mymin(qp1, qp2),qp3); qmin = mymin(qmin, qm);  
+dfloat qmax = mymax(mymax(qp1, qp2),qp3); qmax = mymax(qmax, qm); 
+
+// Now limit the gradient 
+dfloat lim1 = 1.0; dfloat lim2 = 1.0; dfloat lim3 = 1.0; 
+if((qf1-qm)>0 ){ 
+	lim1 = mymin(1, (qmax-qm)/(qf1 - qm));
+}else if((qf1-qm)<0){
+  lim1 = mymin(1, (qmin-qm)/(qf1 - qm));
+}
+
+if((qf2-qm)>0 ){ 
+	lim2 = mymin(1, (qmax-qm)/(qf2 - qm));
+}else if((qf2-qm)<0){
+  lim2 = mymin(1, (qmin-qm)/(qf2 - qm));
+}
+
+if((qf3-qm)>0 ){ 
+	lim3 = mymin(1, (qmax-qm)/(qf3 - qm));
+}else if((qf3-qm)<0){
+  lim3 = mymin(1, (qmin-qm)/(qf3 - qm));
+}
+
+dfloat lim = mymin(mymin(lim1,lim2),lim3); 
+
+ *a1 = qm;           
+ *a2 = lim*dqdx;
+ *a3 = lim*dqdy;
+           
+}
+
+// Reconstruct FV face values once at all
+@kernel void lssReconstructFace2Tri2D(const dlong Nelements,
+						const int fieldid, 
+					     @restrict const int * mEToV, 
+					     @restrict const dlong * elmList, 
+					     @restrict const dfloat * vgeo,                            
+					     @restrict const dfloat * sgeo,                            
+					     @restrict const dlong *  emapP,                            
+					     @restrict const dlong *  fmapP,                            
+					     @restrict const dfloat *  q,
+					     @restrict const dfloat *  sq,
+					     @restrict const dfloat *  svq,
+					     @restrict dfloat *sface){
+
+  for(dlong eo=0;eo<Nelements;eo+=s_Nblocks;@outer(0)){
+    for(int es=0;es<s_Nblocks;++es;@inner(1)){
+      for(int s=0;s<s_Ncells;++s;@inner(0)){ 
+	const dlong e = eo + es;
+	if(e<Nelements){
+	  const int elmType = elmList[e*p_Nfields + fieldid]; 
+	  if(elmType==s_FVFV_TYPE){
+	    const dlong sem  =  e*s_Ncells + s; 
+	    const dlong vid  =  sem*s_Nvgeo;  
+	    const dlong sid  =  sem*p_Nfaces*s_Nsgeo; 
+
+	    //Local Infos
+	    const dfloat qm   = sq[e*s_Ncells*p_Nfields + s + fieldid*s_Ncells];              // solution
+	    const dfloat xcm  = vgeo[vid + s_CXID]; // center coordinates
+	    const dfloat ycm  = vgeo[vid + s_CYID];
+	    const dfloat ivl  = vgeo[vid + s_IVID];
+	    // const dfloat invh = sqrt(ivl);
+
+	    // const dlong id    = (e*s_Ncells + sem)*p_Nfaces; 
+	    const dlong sep1  = emapP[sem*p_Nfaces + 0];
+	    const dlong sep2  = emapP[sem*p_Nfaces + 1];
+	    const dlong sep3  = emapP[sem*p_Nfaces + 2];
+
+	    const int bc1      = sgeo[sid + 0*s_Nsgeo + s_BCID]; 
+	    const int bc2      = sgeo[sid + 1*s_Nsgeo + s_BCID]; 
+	    const int bc3      = sgeo[sid + 2*s_Nsgeo + s_BCID];
+	    //
+	    const dlong ep1 = sep1/s_Ncells; 
+	    const dlong ep2 = sep2/s_Ncells; 
+	    const dlong ep3 = sep3/s_Ncells; 
+
+	    const dlong sp1 = sep1%s_Ncells; 
+	    const dlong sp2 = sep2%s_Ncells; 
+	    const dlong sp3 = sep3%s_Ncells; 
+
+	    const int etype1 = elmList[ep1*p_Nfields + fieldid]; 
+	    const int etype2 = elmList[ep2*p_Nfields + fieldid]; 
+	    const int etype3 = elmList[ep3*p_Nfields + fieldid]; 
+
+	    dfloat qp1  = 0,  qp2 =0,   qp3 = 0; 
+	    dfloat qv1  = 0,  qv2 =0,   qv3 = 0; 
+	    dfloat xcp1 = 0, xcp2 =0,   xcp3= 0; 
+	    dfloat ycp1 = 0, ycp2 =0,   ycp3= 0; 
+
+
+	    const dfloat xf1 =  sgeo[sid + 0*s_Nsgeo + s_FXID];
+	    const dfloat yf1 =  sgeo[sid + 0*s_Nsgeo + s_FYID];
+
+	    const dfloat xf2 =  sgeo[sid + 1*s_Nsgeo + s_FXID];
+	    const dfloat yf2 =  sgeo[sid + 1*s_Nsgeo + s_FYID];
+
+	    const dfloat xf3 =  sgeo[sid + 2*s_Nsgeo + s_FXID];
+	    const dfloat yf3 =  sgeo[sid + 2*s_Nsgeo + s_FYID];
+
+	    #if 1
+	    const int lv1 = mEToV[s*s_Nverts + 0]; 
+	    const int lv2 = mEToV[s*s_Nverts + 1]; 
+	    const int lv3 = mEToV[s*s_Nverts + 2];
+
+	    // qv1 = svq[e*s_Np*p_Nfields + lv1 + fieldid*s_Np]; 
+	    // qv2 = svq[e*s_Np*p_Nfields + lv2 + fieldid*s_Np]; 
+	    // qv3 = svq[e*s_Np*p_Nfields + lv3 + fieldid*s_Np]; 
+	    qv1 = svq[e*s_Np + lv1]; 
+	    qv2 = svq[e*s_Np + lv2]; 
+	    qv3 = svq[e*s_Np + lv3]; 
+
+	    const dfloat snx1 =  sgeo[sid + 0*s_Nsgeo + s_NXID];
+	    const dfloat sny1 =  sgeo[sid + 0*s_Nsgeo + s_NYID];
+	    const dfloat sA1  =  sgeo[sid + 0*s_Nsgeo + s_SAID];
+
+	    const dfloat snx2 =  sgeo[sid + 1*s_Nsgeo + s_NXID];
+	    const dfloat sny2 =  sgeo[sid + 1*s_Nsgeo + s_NYID];
+	    const dfloat sA2 =  sgeo[sid + 1*s_Nsgeo + s_SAID];
+
+	    const dfloat snx3 =  sgeo[sid + 2*s_Nsgeo + s_NXID];
+	    const dfloat sny3 =  sgeo[sid + 2*s_Nsgeo + s_NYID];
+	    const dfloat sA3 =  sgeo[sid + 2*s_Nsgeo + s_SAID];
+
+	    #endif
+
+
+
+
+	    if(etype1==s_FVFV_TYPE){
+	      const dlong id1  = ep1*s_Ncells*p_Nfields + sp1; 
+	      qp1   = sq[id1 + fieldid*s_Ncells]; 
+	      xcp1  = vgeo[sep1*s_Nvgeo + s_CXID];  
+	      ycp1  = vgeo[sep1*s_Nvgeo + s_CYID]; 
+	    }else{ // DGFV Tpe : face value already constructed
+	      const int fp = fmapP[sem*p_Nfaces + 0];
+	      const dlong id1 = ep1*s_Ncells*p_Nfields*p_Nfaces + sp1*p_Nfaces + fp; 
+	      qp1  = sface[id1 + fieldid*p_Nfaces*s_Ncells];
+	      xcp1 =  xf1; ycp1 =  yf1;
+	    }
+
+	    if(etype2==s_FVFV_TYPE){
+	      const dlong id2  = ep2*s_Ncells*p_Nfields + sp2; 
+	      qp2   = sq[id2 + fieldid*s_Ncells]; 
+	      xcp2  = vgeo[sep2*s_Nvgeo + s_CXID];  
+	      ycp2  = vgeo[sep2*s_Nvgeo + s_CYID]; 
+	    }else{// DGFV Tpe : face value already constructed
+	      const int fp = fmapP[sem*p_Nfaces + 1]; 
+	      const dlong id2 = ep2*s_Ncells*p_Nfields*p_Nfaces + sp2*p_Nfaces + fp; 
+	      qp2  = sface[id2 + fieldid*p_Nfaces*s_Ncells];
+	      xcp2 =  xf2; ycp2 =  yf2;
+	    }
+
+	    if(etype3==s_FVFV_TYPE){
+	      const dlong id3  = ep3*s_Ncells*p_Nfields + sp3; 
+	      qp3   = sq[id3 + fieldid*s_Ncells]; 
+	      xcp3  = vgeo[sep3*s_Nvgeo + s_CXID];  
+	      ycp3  = vgeo[sep3*s_Nvgeo + s_CYID]; 
+	    }else{// DGFV Tpe : face value already constructed
+	      const int fp = fmapP[sem*p_Nfaces + 2];  
+	      const dlong id3 = ep3*s_Ncells*p_Nfields*p_Nfaces + sp3*p_Nfaces + fp; 
+	      qp3  = sface[id3 + fieldid*p_Nfaces*s_Ncells];
+	      xcp3 =  xf3; ycp3 =  yf3;
+	    }
+
+	    // Do nothing BC's: a little tricky for FV cells
+	    if(bc1>0){
+	      xcp1 =  sgeo[sid + 0*s_Nsgeo + s_FXID];
+	      ycp1 =  sgeo[sid + 0*s_Nsgeo + s_FYID];
+	      qp1 = qm; 
+	    }
+	    if(bc2>0){
+	      xcp2 =  sgeo[sid + 1*s_Nsgeo + s_FXID];
+	      ycp2 =  sgeo[sid + 1*s_Nsgeo + s_FYID];
+	      qp2  = qm; 
+	    }
+	    if(bc3>0){
+	      xcp3 =  sgeo[sid + 2*s_Nsgeo + s_FXID];
+	      ycp3 =  sgeo[sid + 2*s_Nsgeo + s_FYID];
+	      qp3 = qm;
+	    }
+
+
+	    dfloat a1, a2, a3; 
+	    DGFV2(xcm, ycm, ivl, xcp1,ycp1,xcp2,ycp2,xcp3,ycp3, 
+	    	   snx1, sny1, sA1, snx2, sny2, sA2, snx3, sny3, sA3, 
+	    	   qm,
+	    	   qp1,qp2,qp3, qv1,qv2,qv3, 
+		       bc1, bc2, bc3, &a1, &a2, &a3);
+
+
+	 //    // Do nothing BC's: a little tricky for FV cells
+	 //    if(bc1>0 || bc2>0 || bc3>0){
+	 //      // iterate to reconstruct face values at BC's
+	 //      for(int i=0; i<3; i++){
+		// if(bc1>0){qp1 = a1 + a2*dx1 + a3*dy1;}
+		// if(bc2>0){qp2 = a1 + a2*dx2 + a3*dy2;}
+		// if(bc3>0){qp3 = a1 + a2*dx3 + a3*dy3;}
+		//  dfloat a1, a2, a3; 
+	 //    WENO2Coeff(dx1,dy1, dx2,dy2, dx3,dy3, qm,qp1,qp2,qp3, 
+		//        bc1, bc2, bc3, &a1, &a2, &a3);
+	 //      }
+	 //    }
+
+	    for(int f=0; f<p_Nfaces; f++){
+	      // modifed 2nd order WENO 
+	      const dfloat fxm = sgeo[sid + f*s_Nsgeo + s_FXID]; 
+	      const dfloat fym = sgeo[sid + f*s_Nsgeo + s_FYID];     
+
+          const dlong id  =  e*s_Ncells*p_Nfaces*p_Nfields + s*p_Nfaces + f; 
+
+	      sface[id + fieldid*p_Nfaces*s_Ncells] = a1 + a2*(fxm -xcm) + a3*(fym - ycm); 
+
+	    }
+	  }
+	}
+      }
+    }
+
+  }
+
+}
 
 
 
@@ -1008,9 +1324,6 @@ dfloat lim = mymin(mymin(lim1,lim2),lim3);
 	    WENO2Coeff(dx1,dy1, dx2,dy2, dx3,dy3, qm,qp1,qp2,qp3, 
 		       bc1, bc2, bc3, &a1, &a2, &a3);
 
-	    // dfloat a1, a2, a3; 
-	    // WENO2Test(dx1,dy1, dx2,dy2, dx3,dy3, invh, qm,qp1,qp2,qp3, 
-		   //     bc1, bc2, bc3, &a1, &a2, &a3);
 
 
 	    //  dfloat a1, a2, a3; 
@@ -1023,11 +1336,12 @@ dfloat lim = mymin(mymin(lim1,lim2),lim3);
 	    // Do nothing BC's: a little tricky for FV cells
 	    if(bc1>0 || bc2>0 || bc3>0){
 	      // iterate to reconstruct face values at BC's
-	      for(int i=0; i<3; i++){
+	      for(int i=0; i<5; i++){
 		if(bc1>0){qp1 = a1 + a2*dx1 + a3*dy1;}
 		if(bc2>0){qp2 = a1 + a2*dx2 + a3*dy2;}
 		if(bc3>0){qp3 = a1 + a2*dx3 + a3*dy3;}
-		 dfloat a1, a2, a3; 
+		 // dfloat a1, a2, a3; 
+	    
 	    WENO2Coeff(dx1,dy1, dx2,dy2, dx3,dy3, qm,qp1,qp2,qp3, 
 		       bc1, bc2, bc3, &a1, &a2, &a3);
 		

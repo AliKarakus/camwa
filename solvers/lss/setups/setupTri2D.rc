@@ -6,11 +6,13 @@
 #data/lssVortex2D.h
 #data/lssCircle2D.h
 #data/lssIntersectingCircle2D.h
-data/lssSquare2D.h
+#data/lssSquare2D.h
 #data/lssElliptic2D.h
+data/lssMultipleInterfaces2D.h
+
 
 [MESH FILE]
-BOX
+#BOX
 #../../meshes/lssVortex.msh
 #../../meshes/circle.msh
 #../../meshes/circle_hole.msh
@@ -21,6 +23,7 @@ BOX
 #../../meshes/circle_h01.msh
 #../../meshes/lssTest.msh
 #../../meshes/circle_3.msh
+../../meshes/circle_3.msh
 
 
 [MESH DIMENSION]
@@ -30,10 +33,10 @@ BOX
 3
 
 [BOX NX]
-100
+65
 
 [BOX NY]
-100
+65
 
 [BOX DIMX]
 4
@@ -46,7 +49,7 @@ BOX
 #-1
 
 [POLYNOMIAL DEGREE]
-4
+5
 
 [THREAD MODEL]
 #Serial
@@ -80,7 +83,7 @@ SUBCELL
 #NONE
 
 [SUBCELL NUMBER]
-5
+6
 
 [INDICATOR TYPE]
 MDA
@@ -90,8 +93,8 @@ ENO2
 #ENO3
 
 [SUBCELL MINOR GRID]
-EQUISPACED
-#WARPBLEND
+#EQUISPACED
+WARPBLEND
 
 [START TIME]
 0
@@ -99,19 +102,23 @@ EQUISPACED
 [FINAL TIME]
 #8
 #3
-2
-#0.01
+1.5
+#0.4
 
 [OUTPUT INTERVAL]
 0.1
 
 [OUTPUT TO FILE]
 TRUE
+#FALSE
 
 [OUTPUT FILE NAME]
 #vortex
 #circleSmooth
 #circleIntersecting
-square
+#square
 #squareRotaed
-#elliptic
+#ellipse
+#03
+#multiple
+test

@@ -24,6 +24,11 @@ SOFTWARE.
 
 */
 
+#define CIRCLE_TEST 0
+#define SQUARE_TEST 0
+#define INTERSECTINGCIRCLE_TEST 1
+#define ELLIPSE_TEST 0
+
 #include "lss.hpp"
 
 void lss_t::Run(){
@@ -153,6 +158,76 @@ DetectTroubledCells(o_q, subcell->o_ElementList);
 // printf("%.4e\n",timeStepper->GetTimeStep() );
 // finalTime = startTime + 12*timeStepper->GetTimeStep();
 // printf("%.4e %.4e\n",finalTime, timeStepper->GetTimeStep() );
+
+
+
+#if 1
+
+phiex = (dfloat *)malloc(mesh.Nelements*mesh.Np*sizeof(dfloat));
+
+#if CIRCLE_TEST
+      for(int n=0; n<(mesh.Nelements*mesh.Np); n++){
+        const dfloat xn = mesh.x[n]; 
+        const dfloat yn = mesh.y[n]; 
+        phiex[n] = sqrt(xn*xn + yn*yn) - 1.0;
+      }
+#endif  
+
+#if ELLIPSE_TEST
+      const dlong Npoints = 100000; 
+      dfloat *xp = (dfloat *)malloc(Npoints*sizeof(dfloat)); 
+      dfloat *yp = (dfloat *)malloc(Npoints*sizeof(dfloat)); 
+      const dfloat A = 1.0, B=0.5; 
+      const dfloat xc = 0.875f;       
+      const dfloat yc = 0.5f;  
+
+      for(int n=0; n<Npoints; n++){
+        xp[n] = A*cos(2.0*M_PI*n/Npoints); 
+        yp[n] = B*sin(2.0*M_PI*n/Npoints); 
+      }
+
+      for(int n=0; n<(mesh.Nelements*mesh.Np); n++){
+        const dfloat xn = mesh.x[n]; 
+        const dfloat yn = mesh.y[n]; 
+        const dfloat pinit = pow( (xn-xc)*(xn-xc)+(yn-yc)*(yn-yc)+0.1, 1.0)* (sqrt(xn*xn/(A*A) + yn*yn/(B*B)) - 1.0); 
+        
+        dfloat dist =1E6; 
+        for(int i=0; i<Npoints; i++){
+          const dfloat xi = xp[i], yi=yp[i];  
+          dist =std::min(sqrt((xn-xi)*(xn-xi) + (yn-yi)*(yn-yi)), dist);
+        }
+
+        phiex[n] = (pinit<=0.0) ? -dist:dist;  
+      }
+  #endif  
+
+
+#if INTERSECTINGCIRCLE_TEST
+
+  const dfloat rc = 1.0;
+  const dfloat ac = 0.7;
+
+  for(int n=0; n<(mesh.Nelements*mesh.Np); n++){
+
+  const dfloat xn = mesh.x[n]; 
+  const dfloat yn = mesh.y[n]; 
+  const dfloat test1 = (ac-xn)/sqrt((ac-xn)*(ac-xn) + yn*yn); 
+  const dfloat test2 = (ac+xn)/sqrt((ac+xn)*(ac+xn) + yn*yn);
+
+if( ( test1 >= ac/rc ) && ( test2 >= ac/rc ) ){ 
+phiex[n] = - std::min(sqrt( xn*xn+  ( yn-sqrt( rc*rc-ac*ac ) )*( yn-sqrt( rc*rc-ac*ac))), 
+                 sqrt( xn*xn+( yn+sqrt( rc*rc-ac*ac))*(yn+sqrt( rc*rc-ac*ac)))); 
+} else{ 
+phiex[n]= std::min( sqrt( (xn+ac)*(xn+ac)+ yn*yn)-rc, sqrt( (xn-ac)*(xn-ac)+ yn*yn)-rc );
+}
+
+}
+ 
+  #endif  
+
+
+
+#endif
 
 
 

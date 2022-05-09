@@ -63,6 +63,7 @@ lss_t& lss_t::Setup(mesh_t& mesh, linAlg_t& linAlg,
   lss->q = (dfloat*) calloc((Nlocal+Nhalo)*lss->Nfields, sizeof(dfloat));
   lss->o_q = mesh.device.malloc((Nlocal+Nhalo)*lss->Nfields*sizeof(dfloat), lss->q); 
 
+
   // this holds the gradient of qM, qP
   lss->gradq = (dfloat*) calloc(Nlocal*lss->Nfields*mesh.dim, sizeof(dfloat));
   lss->o_gradq = mesh.device.malloc(Nlocal*lss->Nfields*mesh.dim*sizeof(dfloat),lss->gradq);
@@ -258,8 +259,20 @@ lss_t& lss_t::Setup(mesh_t& mesh, linAlg_t& linAlg,
 
 
 // 
-  if(lss->subcellStabilization)
+  if(lss->subcellStabilization){
     lss->SetupStabilizer();   
+
+#if 1
+    const dlong sNlocal = mesh.Nelements*lss->subcell->Np*lss->Nfields; 
+
+  lss->svq   = (dfloat*) calloc(sNlocal, sizeof(dfloat));
+  lss->o_svq = mesh.device.malloc(sNlocal*sizeof(dfloat), lss->svq); 
+
+  lss->gsq = (dfloat*) calloc(Nlocal, sizeof(dfloat));
+  lss->o_gsq = mesh.device.malloc(Nlocal*sizeof(dfloat), lss->gsq); 
+#endif
+
+  }
 
 
   //setup timeStepper
@@ -280,7 +293,7 @@ lss_t& lss_t::Setup(mesh_t& mesh, linAlg_t& linAlg,
 
   // // set time step
   dfloat hmin = mesh.MinCharacteristicLength();
-  dfloat cfl = 1.0; // depends on the stability region size
+  dfloat cfl = 0.25; // depends on the stability region size
 
   dfloat dt = cfl*hmin/((mesh.N+1.)*(mesh.N+1.));
   lss->timeStepper->SetTimeStep(dt);  

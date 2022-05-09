@@ -81,6 +81,14 @@ void lss_t::SetupStabilizer(){
     projectKernel = buildKernel(mesh.device, fileName, kernelName, 
                                      kernelInfo, mesh.comm); 
 
+    sprintf(kernelName, "lssProjectVertex%s", suffix);
+    projectVertexKernel = buildKernel(mesh.device, fileName, kernelName, 
+                                     kernelInfo, mesh.comm); 
+
+    sprintf(kernelName, "lssExtractField%s", suffix);
+    extractFieldKernel = buildKernel(mesh.device, fileName, kernelName, 
+                                     kernelInfo, mesh.comm); 
+
     sprintf(kernelName, "lssReconstruct%s", suffix);
     reconstructKernel = buildKernel(mesh.device, fileName, kernelName, 
                                      kernelInfo, mesh.comm); 
@@ -95,6 +103,10 @@ void lss_t::SetupStabilizer(){
 
     sprintf(kernelName, "lssReconstructFace%s", suffix);
     reconstructFaceKernel = buildKernel(mesh.device, fileName, kernelName, 
+                                     kernelInfo, mesh.comm); 
+
+    sprintf(kernelName, "lssReconstructFace2%s", suffix);
+    reconstructFace2Kernel = buildKernel(mesh.device, fileName, kernelName, 
                                      kernelInfo, mesh.comm); 
 
     sprintf(kernelName, "lssProjectDG%s", suffix);

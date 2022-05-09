@@ -85,9 +85,13 @@ void subcell_t::WBNodesEToVTri2D(int _N, int *_EToV){
       _EToV[cnt*_Nverts+2] = sk+shift;
       cnt++;
       if (i!=_N-j-1) { // downward triangle
-        _EToV[cnt*_Nverts+0] = sk+shift+1; 
-        _EToV[cnt*_Nverts+1] = sk+shift;
-        _EToV[cnt*_Nverts+2] = sk+1;
+        // _EToV[cnt*_Nverts+0] = sk+shift+1; 
+        // _EToV[cnt*_Nverts+1] = sk+shift;
+        // _EToV[cnt*_Nverts+2] = sk+1;
+        _EToV[cnt*_Nverts+0] = sk+1;
+        _EToV[cnt*_Nverts+1] = sk+shift+1; 
+        _EToV[cnt*_Nverts+2] = sk+shift;
+
         cnt++;
       }
       sk++;
