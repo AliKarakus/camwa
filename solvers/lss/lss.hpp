@@ -179,6 +179,12 @@ public:
   void SetupStabilizer(); 
 
   void DetectTroubledCells(occa::memory& o_Q, occa::memory& o_list); 
+
+
+  void writeData(dfloat* Q, char *fileName);
+  void writeConnectivity(dfloat* Q, char *fileName);
+
+
   
 };
 

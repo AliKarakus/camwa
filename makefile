@@ -84,16 +84,17 @@ CORE_DIR     =${LIBP_DIR}/core
 OGS_DIR      =${LIBP_LIBS_DIR}/ogs
 MESH_DIR     =${LIBP_LIBS_DIR}/mesh
 PARALMOND_DIR=${LIBP_LIBS_DIR}/parAlmond
+SUBCELL_DIR  =${LIBP_LIBS_DIR}/subcell
 SOLVER_DIR   =${LIBP_DIR}/solvers
 
 .PHONY: all solvers \
 			acoustics advection bns cns elliptic fokkerPlanck gradient ins \
-			libparAlmond libmesh libogs libgs libblas \
+			libparAlmond libmesh libogs libgs libblas libsubcell \
 			clean clean-libs realclean help info
 
 all: solvers
 
-solvers: acoustics advection bns cns elliptic fokkerPlanck gradient ins
+solvers: acoustics advection bns cns elliptic fokkerPlanck gradient ins lss
 
 acoustics: libmesh
 ifneq (,${verbose})
@@ -141,6 +142,21 @@ ifneq (,${verbose})
 else
 	@printf "%b" "$(SOL_COLOR)Building $(@F) solver$(NO_COLOR)\n";
 	@${MAKE} -C ${SOLVER_DIR}/$(@F) --no-print-directory
+endif
+
+lss: libmesh | subcell
+ifneq (,${verbose})
+	${MAKE} -C ${SOLVER_DIR}/$(@F) verbose=${verbose}
+else
+	@printf "%b" "$(SOL_COLOR)Building $(@F) solver$(NO_COLOR)\n";
+	@${MAKE} -C ${SOLVER_DIR}/$(@F) --no-print-directory
+endif
+
+subcell: libmesh 
+ifneq (,${verbose})
+	${MAKE} -C ${SUBCELL_DIR} lib verbose=${verbose}
+else
+	@${MAKE} -C ${SUBCELL_DIR} lib --no-print-directory
 endif
 
 gradient: libmesh

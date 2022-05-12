@@ -29,6 +29,10 @@ LIBP_ARCH=GNU
 
 #absolute path to libparanumal
 export LIBP_DIR:=$(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
+#export OCCA_DIR=${LIBP_DIR}/occa
+
+#export PATH=$PATH:${OCCA_DIR}/bin
+#export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${OCCA_DIR}/lib
 
 export LIBP_INCLUDE_DIR=${LIBP_DIR}/include
 export LIBP_TPL_DIR=${LIBP_DIR}/3rdParty

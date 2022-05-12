@@ -7,8 +7,8 @@
 #data/lssCircle2D.h
 #data/lssIntersectingCircle2D.h
 #data/lssSquare2D.h
-#data/lssElliptic2D.h
-data/lssMultipleInterfaces2D.h
+data/lssElliptic2D.h
+#data/lssMultipleInterfaces2D.h
 
 
 [MESH FILE]
@@ -23,7 +23,7 @@ data/lssMultipleInterfaces2D.h
 #../../meshes/circle_h01.msh
 #../../meshes/lssTest.msh
 #../../meshes/circle_3.msh
-../../meshes/circle_3.msh
+../../meshes/circle_1.msh
 
 
 [MESH DIMENSION]
@@ -102,11 +102,11 @@ WARPBLEND
 [FINAL TIME]
 #8
 #3
-1.5
+1.0
 #0.4
 
 [OUTPUT INTERVAL]
-0.1
+10.0
 
 [OUTPUT TO FILE]
 TRUE

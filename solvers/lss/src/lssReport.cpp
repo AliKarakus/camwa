@@ -32,82 +32,62 @@ SOFTWARE.
 
 void lss_t::Report(dfloat time, int tstep){
 
-  Error(time, tstep);
+  // Error(time, tstep);
 
   static int frame=0;
-// #if 0
-//   // //compute q.M*q
-//   // lss version
-//   MassMatrixKernel(mesh.Nelements, mesh.o_ggeo, mesh.o_MM, o_phi, o_Mq);
-
-//   dlong Nentries = mesh.Nelements*mesh.Np;
-//   dfloat norm2 = sqrt(linAlg.innerProd(Nentries, o_phi, o_Mq, comm));
-// #else
-//    dlong Nentries = mesh.Nelements*mesh.Np;
-//    dfloat *test = (dfloat *)calloc(Nentries, sizeof(dfloat)); 
-
-//    occa::memory o_test = mesh.device.malloc(Nentries*sizeof(dfloat), test);
-   
-//    o_test.copyFrom(o_phi); 
-//    mesh.ogs->GatherScatter(o_test, ogs_dfloat, ogs_add, ogs_sym);
-//    linAlg.amx(Nentries, 1.0, o_invDegree, o_test); 
-
-//    o_test.copyTo(phi);
-
-//   for(int n=0; n<Nentries; n++){
-//     const dfloat xn = mesh.x[n]; 
-//     const dfloat yn = mesh.y[n]; 
-
-//     #if CIRCLE_TEST
-//         dfloat exact = sqrt(xn*xn + yn*yn) - 1.0;
-//         test[n] = fabs(phi[n] - exact); 
-//     #elif SQUARE_TEST
-
-
-//     #elif INTERSECTINGCIRCLE_TEST
-
-
-
-//     #endif 
-//   }
-
-//   o_test.copyFrom(test); 
-
-//   MassMatrixKernel(mesh.Nelements, mesh.o_ggeo, mesh.o_MM, o_test, o_Mq);
-//   dfloat norm2 = sqrt(linAlg.innerProd(Nentries, o_test, o_Mq, comm));
-
-//   // norm2 *= norm2; // area 
-  
-//   // error for r=1 circle
-//   // norm2 = M_PI - norm2;
-
-
-
-
-
-
-
-//    free(test); 
-
-// #endif
-
-  // if(mesh.rank==0)
-  //   printf("%5.2f (%d), %.8e (time, timestep, norm)\n", time, tstep, norm2);
 
   if (settings.compareSetting("OUTPUT TO FILE","TRUE")) {
+    dlong   Nentries = mesh.Nelements*mesh.Np;
+    dfloat *test   = (dfloat *)calloc(Nentries, sizeof(dfloat)); 
+    occa::memory o_test = mesh.device.malloc(Nentries*sizeof(dfloat), test);
+    
+    o_test.copyFrom(o_phi);
 
-    o_q.copyTo(q);
-    // o_phi.copyTo(phi); 
+
+    MassMatrixKernel(mesh.Nelements, mesh.o_ggeo, mesh.o_MM, o_test, o_Mq);
+    dfloat norml2 = sqrt(linAlg.innerProd(Nentries, o_test, o_Mq, comm));
+
+    if(mesh.rank==0){
+        printf("%5.2f, %.4e (time,  L2_norm)\n", 
+          time,  norml2);  
+      }
+
+
+    mesh.ogs->GatherScatter(o_test, ogs_dfloat, ogs_add, ogs_sym);
+    linAlg.amx(Nentries, 1.0, o_invDegree, o_test); 
+    o_test.copyTo(phi);
+
     if(redistance){
-      // o_sgnq.copyTo(sgnq);
       subcell->o_ElementList.copyTo(subcell->ElementList);
     }   
     // output field files
     string name;
     settings.getSetting("OUTPUT FILE NAME", name);
-    char fname[BUFSIZ];
-    sprintf(fname, "%s_%04d_%04d.vtu", name.c_str(), mesh.rank, frame++);
+        
+    if(frame==0){
+      char fname_tri[BUFSIZ];
+      sprintf(fname_tri, "%s_tri.dat", name.c_str());
+      writeConnectivity(q,fname_tri);
+    }
 
-    PlotFields(q, fname);
+    char fname_data[BUFSIZ];
+    sprintf(fname_data, "%s_%d.dat", name.c_str(), frame++);
+    writeData(q, fname_data);
   }
+
+
+  //   o_q.copyTo(q);
+
+  //   if(redistance){
+  //     subcell->o_ElementList.copyTo(subcell->ElementList);
+  //   }   
+  //   // output field files
+  //   string name;
+  //   settings.getSetting("OUTPUT FILE NAME", name);
+  //   char fname[BUFSIZ];
+  //   // sprintf(fname, "%s_%04d_%04d.vtu", name.c_str(), mesh.rank, frame++);
+  //   sprintf(fname, "%s_%d.vtu", name.c_str(), frame++);
+
+  //   PlotFields(q, fname);
+  // }
 }

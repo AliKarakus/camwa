@@ -27,6 +27,50 @@ SOFTWARE.
 #include "lss.hpp"
 
 // interpolate data to plot nodes and save to file (one per process
+void lss_t::writeData(dfloat* Q, char *fileName){
+
+  FILE *fp; 
+  fp = fopen(fileName, "w");
+
+    // compute plot node coordinates on the fly
+  for(dlong e=0;e<mesh.Nelements;++e){
+    for(int n=0;n<mesh.plotNp;++n){
+      dfloat plotxn = 0, plotyn = 0, plotpn=0;
+
+      for(int m=0;m<mesh.Np;++m){
+        plotxn += mesh.plotInterp[n*mesh.Np+m]*mesh.x[m+e*mesh.Np];
+        plotyn += mesh.plotInterp[n*mesh.Np+m]*mesh.y[m+e*mesh.Np];
+        plotpn += mesh.plotInterp[n*mesh.Np+m]*phi[e*mesh.Np + m];
+      }
+      fprintf(fp, "%g %g %g\n", plotxn,plotyn,plotpn);
+    }
+  }
+
+fclose(fp);
+}
+
+
+// interpolate data to plot nodes and save to file (one per process
+void lss_t::writeConnectivity(dfloat* Q, char *fileName){
+
+  FILE *fp; 
+  fp = fopen(fileName, "w");
+
+   for(dlong e=0;e<mesh.Nelements;++e){
+    for(int n=0;n<mesh.plotNelements;++n){
+      for(int m=0;m<mesh.plotNverts;++m){
+        fprintf(fp, "%d ", e*mesh.plotNp + mesh.plotEToV[n*mesh.plotNverts+m]);
+      }
+      fprintf(fp, "\n");
+    }
+  }
+
+fclose(fp);
+}
+
+
+
+// interpolate data to plot nodes and save to file (one per process
 void lss_t::PlotFields(dfloat* Q, char *fileName){
 
   FILE *fp;
@@ -62,58 +106,60 @@ void lss_t::PlotFields(dfloat* Q, char *fileName){
   fprintf(fp, "      </Points>\n");
 
 
-  // write out field
+
+// write out field
   fprintf(fp, "      <PointData Scalars=\"scalars\">\n");
-  fprintf(fp, "        <DataArray type=\"Float32\" Name=\"Field\" NumberOfComponents=\"%d\" Format=\"ascii\">\n",Nfields+1);
+  fprintf(fp, "        <DataArray type=\"Float32\" Name=\"phi\" Format=\"ascii\">\n");
   for(dlong e=0;e<mesh.Nelements;++e){
     for(int n=0;n<mesh.plotNp;++n){
-      dfloat plotpp = 0;
-      dfloat plotpm = 0;
-      dfloat plotphi = 0;
+      dfloat plotpn = 0;
       for(int m=0;m<mesh.Np;++m){
-        dfloat pp   = Q[e*mesh.Np*2+ m + 0*mesh.Np];
-        dfloat pm   = Q[e*mesh.Np*2+ m + 1*mesh.Np];
         dfloat phin = phi[e*mesh.Np + m];
-        plotpp  += mesh.plotInterp[n*mesh.Np+m]*pp;
-        plotpm  += mesh.plotInterp[n*mesh.Np+m]*pm;
-        plotphi += mesh.plotInterp[n*mesh.Np+m]*phin;
+        plotpn += mesh.plotInterp[n*mesh.Np+m]*phin;
       }
 
       fprintf(fp, "       ");
-      fprintf(fp, "%g %g %g\n", plotpp, plotpm, plotphi);
+      fprintf(fp, "%g\n", plotpn);
     }
   }
   fprintf(fp, "       </DataArray>\n");
 
-  if(redistance){
-// // write out field
-//   fprintf(fp, "        <DataArray type=\"Float32\" Name=\"Phi\" Format=\"ascii\">\n");
-//   for(dlong e=0;e<mesh.Nelements;++e){
-//     for(int n=0;n<mesh.plotNp;++n){
-//       dfloat plotpn = 0;
-//       for(int m=0;m<mesh.Np;++m){
-//         dfloat pm = phi[e*mesh.Np+m];
-//         plotpn += mesh.plotInterp[n*mesh.Np+m]*pm;
-//       }
+  // // write out field
+  // fprintf(fp, "      <PointData Scalars=\"scalars\">\n");
+  // fprintf(fp, "        <DataArray type=\"Float32\" Name=\"Field\" NumberOfComponents=\"%d\" Format=\"ascii\">\n",Nfields+1);
+  // for(dlong e=0;e<mesh.Nelements;++e){
+  //   for(int n=0;n<mesh.plotNp;++n){
+  //     dfloat plotpp = 0;
+  //     dfloat plotpm = 0;
+  //     dfloat plotphi = 0;
+  //     for(int m=0;m<mesh.Np;++m){
+  //       dfloat pp   = Q[e*mesh.Np*2+ m + 0*mesh.Np];
+  //       dfloat pm   = Q[e*mesh.Np*2+ m + 1*mesh.Np];
+  //       dfloat phin = phi[e*mesh.Np + m];
+  //       plotpp  += mesh.plotInterp[n*mesh.Np+m]*pp;
+  //       plotpm  += mesh.plotInterp[n*mesh.Np+m]*pm;
+  //       plotphi += mesh.plotInterp[n*mesh.Np+m]*phin;
+  //     }
 
-//       fprintf(fp, "       ");
-//       fprintf(fp, "%g %g %g\n", plotpp, plotpm, plotphi);
-//     }
-//   }
-//   fprintf(fp, "       </DataArray>\n");
+  //     fprintf(fp, "       ");
+  //     fprintf(fp, "%g %g %g\n", plotpp, plotpm, plotphi);
+  //   }
+  // }
+  // fprintf(fp, "       </DataArray>\n");
 
-// write out field
-  fprintf(fp, "        <DataArray type=\"Float32\" Name=\"TroubledElements\" NumberOfComponents=\"%d\" Format=\"ascii\">\n", Nfields);
-  for(dlong e=0;e<mesh.Nelements;++e){
-    for(int n=0;n<mesh.plotNp;++n){
-      const dfloat plotpn = subcell->ElementList[e*Nfields + 0];
-      const dfloat plotmn = subcell->ElementList[e*Nfields + 1];
-      fprintf(fp, "       ");
-      fprintf(fp, "%g %g\n", plotpn,plotmn);
-    }
-  }
-  fprintf(fp, "       </DataArray>\n");
-  }
+  // if(redistance){
+  // // write out field
+  // fprintf(fp, "        <DataArray type=\"Float32\" Name=\"TroubledElements\" NumberOfComponents=\"%d\" Format=\"ascii\">\n", Nfields);
+  // for(dlong e=0;e<mesh.Nelements;++e){
+  //   for(int n=0;n<mesh.plotNp;++n){
+  //     const dfloat plotpn = subcell->ElementList[e*Nfields + 0];
+  //     const dfloat plotmn = subcell->ElementList[e*Nfields + 1];
+  //     fprintf(fp, "       ");
+  //     fprintf(fp, "%g %g\n", plotpn,plotmn);
+  //   }
+  // }
+  // fprintf(fp, "       </DataArray>\n");
+  // }
    
 
 

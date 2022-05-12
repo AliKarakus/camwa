@@ -75,7 +75,11 @@ void subcellTri2D::SetupDetector(){
 
 
   // Create Highest Mode Version :MDH  
-  dfloat *trnMods = (dfloat*) calloc(mesh.Np, sizeof(dfloat)); 
+  // dfloat *trnMods = (dfloat*) calloc(mesh.Np, sizeof(dfloat)); 
+  dfloat *trnMods = (dfloat*) malloc(mesh.Np*sizeof(dfloat)); 
+  for(int n=0; n<mesh.Np; n++) 
+    trnMods[n] = 0.0;
+     
   // cut out Nth order, N+1 mods
   for(int n=0; n<(mesh.Np -(mesh.N+1)); n++){
     int modid = ModeMap[n]; 
@@ -133,6 +137,7 @@ for(int n=0; n<mesh.Np; n++){
 
 
   free(invV); 
+  free(trnMods); 
   // free(invV1D); 
   // free(V1D); 
 
